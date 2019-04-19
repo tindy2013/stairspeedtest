@@ -1,0 +1,1 @@
+CreateObject("WScript.Shell").Run "tools\ssr-local.exe -c config.json",0

@@ -1,0 +1,1 @@
+CreateObject("WScript.Shell").Run "tools\clash.exe -d .",0
