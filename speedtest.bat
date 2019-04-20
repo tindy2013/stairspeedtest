@@ -176,10 +176,12 @@ goto :eof
 
 :runclash
 wscript tools\runclash.vbs //B
+call :sleep 3
 goto :eof
 
 :runssr
 wscript tools\runssr.vbs //B
+call :sleep 3
 goto :eof
 
 :killclash
@@ -190,25 +192,14 @@ goto :eof
 tskill ssr-local>nul 2>nul
 goto :eof
 
-:perform
-set speed=
-for /f %%i in ('tools\curl -m 10 -o test.test -x socks5://127.0.0.1:65432 https://download.microsoft.com/download/2/2/A/22AA9422-C45D-46FA-808F-179A1BEBB2A7/office2007sp3-kb2526086-fullfile-en-us.exe -L -H -s -skw "%%{speed_download}"') do set speed=%%i
-rem http://cachefly.cachefly.net/100mb.test
-set speed=%speed:.00=%
-if "%speed%" == "00" (set speed=0.00KB&&goto :eof)
-set speeddec=%speed:~-7%
-if "%speeddec%" == "%speed%" (
-set speeddec=%speed:~-4%
-set speed=%speed:~0,-4%.%speeddec:~0,2%KB
-) else (
-set speed=%speed:~0,-7%.%speeddec:~0,2%MB
-)
+:sleep
+ping -n %1 127.1>nul 2>nul
 goto :eof
 
 :chkping
 set avgping=0.00
 set pkloss=100.00%%
-for /f "tokens=*" %%i in ('tools\tcping -n 6 -i 0.5 %1 %2') do (
+for /f "tokens=*" %%i in ('tools\tcping -n 6 -i 1 %1 %2') do (
 call :instr "Average" "%%~i"
 if !retval! equ 0 set avgping=%%i
 call :instr "Was unable to connect" "%%~i"
@@ -226,4 +217,24 @@ set avgping=!avgping:ms=!
 set avgping=!avgping:~1,-1!
 )
 rem for /f %%k in ("%retstr%") do set avgping=%%k
+goto :eof
+
+:perform
+set speed=00
+for /f %%i in ('tools\curl -m 15 -o test.test -x socks5://127.0.0.1:65432 http://cachefly.cachefly.net/100mb.test -L -s -skw "%%{speed_download}"') do set speed=%%i
+rem http://updates-http.cdn-apple.com/2019SpringFCS/fullrestores/091-79183/ECD07652-499F-11E9-99DE-E74576CE070F/iPhone11,8_12.2_16E227_Restore.ipsw
+rem http://cachefly.cachefly.net/100mb.test
+rem https://download.microsoft.com/download/2/2/A/22AA9422-C45D-46FA-808F-179A1BEBB2A7/office2007sp3-kb2526086-fullfile-en-us.exe
+set speed=%speed:.00=%
+if "%speed%" == "00" (set speed=0.00KB&&goto :eof)
+set speeddec=%speed:~-7%
+if "%speeddec%" == "%speed%" (
+set speeddec=%speed:~-4%
+set speed=%speed:~0,-4%.%speeddec:~0,2%KB
+) else (
+set speed=%speed:~0,-7%.%speeddec:~0,2%MB
+)
+goto :eof
+
+:placeholder
 goto :eof
