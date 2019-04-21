@@ -2,6 +2,8 @@
 ## Usage
 * JUST RUN THE SCRIPT, PASTE THE LINK AND GO!
 * Results for subscribe link tests will be saved to a log file in the root folder.
+## Thanks
+**This script is inspired by [NyanChanMeow](https://github.com/NyanChanMeow)'s original script [SSRSpeed](https://github.com/NyanChanMeow/SSRSpeed). From which I have learned quite a lot on how to rewrite the code, and it has provoded me with some critical information. THANK YOU FOR YOUR HARD-WORKING!!**
 ## Known Bugs
 * Currently does not support http obfs in vmess link.
 * If encryption method is *chacha20* in ssr link, ssr client will crash and no speedtest result will be displayed.
