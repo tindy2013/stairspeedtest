@@ -1,4 +1,5 @@
 # stairspeedtest
+A small script that can test the stairs' download speed, packet loss and latency. Supports single ss/ssr/v2ray links and their subscribe links.
 ## Usage
 * JUST RUN THE SCRIPT, PASTE THE LINK AND GO!
 * Results for subscribe link tests will be saved to a log file in the root folder.
