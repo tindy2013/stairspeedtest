@@ -1,15 +1,19 @@
-# stairspeedtest
+# Stair Speedtest
 A small script that can test the stairs' download speed, packet loss and latency. Supports single ss/ssr/v2ray links and their subscribe links.
 ## Usage
-* JUST RUN THE SCRIPT, PASTE THE LINK AND GO!
+* JUST RUN THE SCRIPT, PASTE THE LINK AND GO! Then just wait till it completes.
 * Results for subscribe link tests will be saved to a log file in the root folder.
+* Exporting results to a PNG file is now available. You can choose whether or not to export it by the end of the test. An HTML file with test results will also be generated.
 ## Thanks
 **This script is inspired by [NyanChanMeow](https://github.com/NyanChanMeow)'s original script [SSRSpeed](https://github.com/NyanChanMeow/SSRSpeed). From which I have learned quite a lot on how to rewrite the code, and it has provoded me with some critical information. THANK YOU FOR YOUR HARD-WORKING!!**
+**Also thanks to [CareyWong](https://github.com/CareyWong) for his help and debug.**
 ## Known Bugs
-* Currently does not support http obfs in vmess link.
-* If encryption method is *chacha20* in ssr link, ssr client will crash and no speedtest result will be displayed.
-## Future functions
-* Will add fast.com speedtest soon
+* Currently does not support http obfs in vmess link. (Clash doesn't support it at all, but will switch to v2ray-core soon to enable all v2ray functions.)
+* If encryption method is *chacha20* in ssr link, ssr client will crash and no speedtest result will be displayed. (This is a bug in ssr-native, the only solution by now is to switch to another client like ssr-libev. Will do it soon.)
+* No obfs options for ss links. (Clash hardly supports it. Will switch to ss-libev soon.) (It would still be quite hard to analyze different kinds of ss links.;) )
+## Future Functions
+* Fast.com speedtest has been added to the script, but it is still under testing.
+* Interaction for the result HTML.
 ## Licences
 * [Tencent/rapidjson](https://github.com/Tencent/rapidjson) (MIT/BSD/JSON)
 * [curl/curl](https://github.com/curl/curl) (Modified BSD)
