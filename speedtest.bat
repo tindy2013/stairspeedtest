@@ -6,6 +6,7 @@ setlocal enabledelayedexpansion
 call :killclash
 call :killssr
 set group=
+set fasturl=
 
 :main
 set /p link=link? 
@@ -70,14 +71,17 @@ echo found subscribe link.
 echo please customize your group name. press enter to skip.
 set /p group=group name: 
 echo.
-for /f "delims=" %%i in ('tools\curl --silent "!link!"^|tools\link2json sub') do (
+for /f "delims=" %%i in ('tools\curl --silent "!link!"^|tools\speedtestutil sub') do (
 call :chklink "%%i"
 if "!linktype!" == "vmess" call :batchclash "%%~i"
 if "!linktype!" == "ss" call :batchclash "%%~i"
 if "!linktype!" == "ssr" call :batchssr "%%~i"
 )
 call :logeof
-echo end of file. press anykey to exit.
+choice /M "end of file. do you want to export result to .png file?"
+if %errorlevel% equ 1 call :exportresult
+if %errorlevel% equ 2 goto :eof
+echo press anykey to exit.
 pause>nul
 goto :eof
 
@@ -87,16 +91,18 @@ goto :eof
 for /f "tokens=1" %%i in ("%date%") do set curdate=%%i
 set curdate=%curdate:/=%
 for /f "tokens=*" %%i in ('time /T') do set curtime=%%i
-set logname=%curdate%-%curtime::=%.log
-echo group,remarks,loss,ping,avgspeed>%logname%
+set logname=%curdate%-%curtime::=%
+set logfile=%logname%.log
+rem echo group,remarks,loss,ping,avgspeed>%logfile%
 goto :eof
 
 :writelog
-echo %groupstr%,%ps%,%pkloss%,%avgping%,%speed%>>%logname%
+echo %groupstr%,%ps%,%pkloss%,%avgping%,%speed%>>%logfile%
 goto :eof
 
 :logeof
-echo generated at %date:/=-% %time%>>%logname%
+for /f %%i in ("%date:/=-%") do set curdate=%%i
+echo Generated at %curdate% %time%>>%logfile%
 goto :eof
 
 :chklink
@@ -168,7 +174,7 @@ echo %proxystr% > config.json
 goto :eof
 
 :readconf
-for /f "delims=, tokens=1-4,*" %%a in ('echo "%~1"^|tools\link2json') do (set groupstr=%%a&&set ps=%%b&&set add=%%c&&set port=%%d&&set proxystr=%%e)
+for /f "delims=, tokens=1-4,*" %%a in ('echo "%~1"^|tools\speedtestutil') do (set groupstr=%%a&&set ps=%%b&&set add=%%c&&set port=%%d&&set proxystr=%%e)
 goto :eof
 
 :buildssconf
@@ -234,6 +240,30 @@ set speed=%speed:~0,-4%.%speeddec:~0,2%KB
 ) else (
 set speed=%speed:~0,-7%.%speeddec:~0,2%MB
 )
+goto :eof
+
+:performfast
+set speed=00
+tools\curl -o fast.htm --silent -x socks5://127.0.0.1:65432 https://fast.com
+for /f "tokens=*" %%i in ('echo placeholder ^| tools\speedtestutil fastpage') do set script=%%i
+tools\curl -o fast.js --silent -x socks5://127.0.0.1:65432 https://fast.com%script%
+for /f %%i in ('echo placeholder ^| tools\speedtestutil fasttoken') do set token=%%i
+for /f %%i in ('tools\curl --silent -x socks5://127.0.0.1:65432 "https://api.fast.com/netflix/speedtest?https=true&token=%token%&urlCount=1" ^| tools\speedtestutil fastjson') do set fasturl=%%i
+for /f %%i in ('tools\curl -m 30 -o test.test -x socks5://127.0.0.1:65432 "%fasturl%" -L -s -skw "%%{speed_download}"') do set speed=%%i
+set speed=%speed:.00=%
+if "%speed%" == "00" (set speed=0.00KB&&goto :eof)
+set speeddec=%speed:~-7%
+if "%speeddec%" == "%speed%" (
+set speeddec=%speed:~-4%
+set speed=%speed:~0,-4%.%speeddec:~0,2%KB
+) else (
+set speed=%speed:~0,-7%.%speeddec:~0,2%MB
+)
+goto :eof
+
+:exportresult
+echo %logfile% | tools\speedtestutil export %logname%.htm
+tools\phantomjs tools\simplerender.js %logname%.htm %logname%.png
 goto :eof
 
 :placeholder
