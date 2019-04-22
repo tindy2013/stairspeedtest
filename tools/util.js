@@ -38,8 +38,14 @@ function speedCompare(iCol){
 }
 
 //remake from https://github.com/NyanChanMeow/SSRSpeed/blob/Dev/SSRSpeed/Result/exportResult.py
-var colorgroup=[[255,255,255],[102,255,102],[255,255,102],[255,178,102],[255,102,102],[226,140,255],[102,204,255],[102,102,255],[102,102,255]];
-var bounds=[0,64,512,4096,16384,24576,32768,40960];
+
+var colorgroup=[[255,255,255],[128,255,0],[255,255,0],[255,128,192],[255,0,0]];
+var bounds=[0,64,512,4*1024,16*1024];
+
+function useNewPalette() {
+	colorgroup=[[255,255,255],[102,255,102],[255,255,102],[255,178,102],[255,102,102],[226,140,255],[102,204,255],[102,102,255]];
+	bounds=[0,64,512,4*1024,16*1024,24*1024,32*1024,40*1024];
+}
 
 function getColor(lc,rc,level) {
 	var colors=[];
@@ -64,7 +70,7 @@ function getSpeedColor(speed) {
 	for(var i=0;i<bounds.length-1;i++) {
 		if(speed>=bounds[i]&&speed<=bounds[i+1]) return rgb2hex(getColor(colorgroup[i],colorgroup[i+1],((speed-bounds[i])/(bounds[i+1]-bounds[i]))));
 	};
-	return rgb2hex(colorgroup[9]);
+	return rgb2hex(colorgroup[colorgroup.length-1]);
 }
 
 function drawcolor() {
