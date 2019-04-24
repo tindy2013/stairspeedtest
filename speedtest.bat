@@ -4,9 +4,11 @@ setlocal enabledelayedexpansion
 
 :init
 call :killclash
+call :killv2core
 call :killssr
 set group=
 set fasturl=
+mkdir results>nul 2>nul
 
 :main
 set /p link=link? 
@@ -24,12 +26,28 @@ goto :eof
 :singlevmess
 echo found vmess link.
 echo.
-goto clashtest
+goto v2test
 
 :singless
 echo found ss link.
 echo.
 goto clashtest
+
+:v2test
+call :readconf "!link!"
+echo Server name: !ps!
+echo testing speed and latency...
+call :buildjson
+call :runv2core
+call :perform
+call :killv2core
+call :chkping %add% %port%
+echo Statistics:
+echo 	DL.Speed: %speed% Pk.Loss: %pkloss% Avg.Ping: %avgping%
+echo.
+echo press anykey to exit.
+pause>nul
+goto :eof
 
 :clashtest
 call :readconf "!link!"
@@ -53,7 +71,7 @@ echo.
 call :readconf "!link!"
 echo Server Group: !groupstr! Name: !ps!
 echo testing speed and latency...
-call :buildssr
+call :buildjson
 call :runssr
 call :perform
 call :killssr
@@ -73,7 +91,7 @@ set /p group=group name:
 echo.
 for /f "delims=" %%i in ('tools\curl --silent "!link!"^|tools\speedtestutil sub') do (
 call :chklink "%%i"
-if "!linktype!" == "vmess" call :batchclash "%%~i"
+if "!linktype!" == "vmess" call :batchv2 "%%~i"
 if "!linktype!" == "ss" call :batchclash "%%~i"
 if "!linktype!" == "ssr" call :batchssr "%%~i"
 )
@@ -92,8 +110,10 @@ for /f "tokens=1" %%i in ("%date%") do set curdate=%%i
 set curdate=%curdate:/=%
 for /f "tokens=*" %%i in ('time /T') do set curtime=%%i
 set logname=%curdate%-%curtime::=%
-set logfile=%logname%.log
-rem echo group,remarks,loss,ping,avgspeed>%logfile%
+set logpath=results\%logname%
+set logfile=results\%logname%.log
+echo group,remarks,loss,ping,avgspeed>%logfile%
+rem echo.>%logfile%
 goto :eof
 
 :writelog
@@ -115,6 +135,22 @@ call :instr "ss://" "%~1"
 if %retval% equ 0 (set linktype=ss&&goto :eof)
 call :instr "ssr://" "%~1"
 if %retval% equ 0 (set linktype=ssr&&goto :eof)
+goto :eof
+
+:batchv2
+echo.
+call :readconf %1
+if not "%group%" == "" set groupstr=%group%
+echo Current Server Group: %groupstr% Name: %ps%
+echo.
+call :buildjson
+call :runv2core
+call :perform
+call :killv2core
+call :chkping %add% %port%
+echo Result: DL.Speed: %speed% Pk.Loss: %pkloss% Avg.Ping: %avgping%
+call :writelog
+echo.
 goto :eof
 
 :batchclash
@@ -139,7 +175,7 @@ call :readconf %1
 if not "%group%" == "" set groupstr=%group%
 echo Current Server Group: %groupstr% Name: %ps%
 echo.
-call :buildssr
+call :buildjson
 call :runssr
 call :perform
 call :killssr
@@ -169,7 +205,7 @@ echo Rule: >> config.yml
 echo - MATCH,proxy >> config.yml
 goto :eof
 
-:buildssr
+:buildjson
 echo %proxystr% > config.json
 goto :eof
 
@@ -185,6 +221,11 @@ wscript tools\runclash.vbs //B
 call :sleep 3
 goto :eof
 
+:runv2core
+wscript tools\runv2core.vbs //B
+call :sleep 3
+goto :eof
+
 :runssr
 wscript tools\runssr.vbs //B
 call :sleep 3
@@ -192,6 +233,10 @@ goto :eof
 
 :killclash
 tskill clash>nul 2>nul
+goto :eof
+
+:killv2core
+tskill v2-core>nul 2>nul
 goto :eof
 
 :killssr
@@ -262,8 +307,10 @@ set speed=%speed:~0,-7%.%speeddec:~0,2%MB
 goto :eof
 
 :exportresult
-echo %logfile% | tools\speedtestutil export %logname%.htm
-tools\phantomjs tools\simplerender.js %logname%.htm %logname%.png
+echo %logfile% | tools\speedtestutil export tools\util.js>%logpath%.htm
+cd results
+..\tools\phantomjs ..\tools\simplerender.js %logname%.htm %logname%.png
+cd ..
 goto :eof
 
 :placeholder

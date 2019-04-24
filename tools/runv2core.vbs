@@ -1,0 +1,1 @@
+CreateObject("WScript.Shell").Run "tools\v2-core.exe",0

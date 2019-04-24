@@ -1,4 +1,4 @@
-function  orderByName(sTableID, iCol) {
+function  orderByName(sTableID, iCol, comparer) {
 	var  oTable = document.getElementById(sTableID);
 	var  oTBody = oTable.tBodies[0];
 	var  colDataRows = oTBody.rows;
@@ -9,7 +9,7 @@ function  orderByName(sTableID, iCol) {
 	if  (oTable.sortCol == iCol) {
 		aTRs.reverse();
 	}  else  {
-		aTRs.sort(speedCompare(iCol));
+		aTRs.sort(comparer(iCol));
 	}
 	var  oFragment = document.createDocumentFragment();
 	for  (  var  j = 0; j < aTRs.length; j++) {
@@ -34,6 +34,20 @@ function speedCompare(iCol){
 		if(vValue1>vValue2) return 1;
 		if(vValue1<vValue2) return -1;
 		return 0;
+	};
+}
+
+function standardCompare(iCol) {
+	return   function  compareTRs(oTR1, oTR2) {
+		vValue1 = oTR1.cells[iCol].firstChild.nodeValue.toString();
+		vValue2 = oTR2.cells[iCol].firstChild.nodeValue.toString();
+		if  (vValue1 < vValue2) {
+			return  -1;
+		}  else   if  (vValue1 > vValue2) {
+			return  1;
+		}  else  {
+			return  0;
+		}
 	};
 }
 
@@ -74,6 +88,7 @@ function getSpeedColor(speed) {
 }
 
 function drawcolor() {
+	useNewPalette();
 	var x = document.getElementsByClassName("speed");
 	for(var i=0;i<x.length;i++){
 		x[i].bgColor=getSpeedColor(getSpeed(x[i].innerText));
@@ -101,8 +116,18 @@ function addRow(pos,str,id) {
 function loadevent() {
 	var gentime=saveAndRemoveRow("gentime");
 	saveAndRemoveRow("first");
-	orderByName("table",4);
+	orderByName("table",table.rows[0].cells.length-1,speedCompare);
 	drawcolor();
-	addRow(0,"<td>Group</td><td>Remarks</td><td>Loss</td><td>Ping</td><td>AvgSpeed</td>","first");
+	addRow(0,"<td onclick='clickevent();'>Group</td><td onclick='clickevent();'>Remarks</td><td onclick='clickevent();'>Loss</td><td onclick='clickevent();'>Ping</td><td onclick='loadevent();'>AvgSpeed</td>","first");
+	addRow(-1,gentime,"gentime");
+	document.getElementById("gentime").setAttribute("colspan",table.rows[0].cells.length);
+}
+
+
+function clickevent() {
+	var gentime=saveAndRemoveRow("gentime");
+	var firstrow=saveAndRemoveRow("first");
+	orderByName("table",event.srcElement.cellIndex,standardCompare);
+	addRow(0,firstrow,"first");
 	addRow(-1,gentime,"gentime");
 }
