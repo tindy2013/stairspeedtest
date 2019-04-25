@@ -195,6 +195,7 @@ goto :eof
 
 :killss
 tskill ss-libev>nul 2>nul
+tskill obfs-local>nul 2>nul
 goto :eof
 
 :killssr
