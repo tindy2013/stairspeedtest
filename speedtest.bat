@@ -3,6 +3,7 @@ title Stair Speedtest
 setlocal enabledelayedexpansion
 
 :init
+::chcp 936>nul
 call :killclash
 call :killv2core
 call :killssr
@@ -16,7 +17,7 @@ mkdir results>nul 2>nul
 echo Welcome to Stair Speedtest!
 echo Which stair do you want to test today? (Supports single ss/ssr/v2ray link and their subscribe links) 
 set /p link=Link: 
-call :chklink "%link%"
+call :chklink "!link!"
 if "%linktype%" == "vmess" goto singlevmess
 if "%linktype%" == "ss" goto singless
 if "%linktype%" == "ssr" goto singlessr
@@ -30,12 +31,39 @@ goto :eof
 :singlevmess
 echo Found single v2ray link.
 echo.
-goto v2test
+goto singletest
 
 :singless
 echo Found single ss link.
 echo.
-goto clashtest
+goto singletest
+
+:singlessr
+echo Found single ssr link.
+echo.
+goto singletest
+
+:singletest
+call :readconf "!link!"
+echo Server Group: !groupstr! Name: !ps!
+echo Now performing tcping...
+call :chkping %add% %port%
+if "%pkloss%" == "100.00%%" (
+echo Cannot connect to server. Skipping speedtest...
+set speed=0.00KB
+) else (
+echo Now performing speedtest...
+call :buildjson
+call :runclient
+call :perform
+call :killclient
+)
+echo Statistics:
+echo 	DL.Speed: %speed% Pk.Loss: %pkloss% Avg.Ping: %avgping%
+echo.
+echo Speedtest done. Press anykey to exit.
+pause>nul
+goto :eof
 
 :v2test
 call :readconf "!link!"
@@ -53,7 +81,7 @@ echo Press anykey to exit.
 pause>nul
 goto :eof
 
-:clashtest
+:sstest
 call :readconf "!link!"
 echo Server name: !ps!
 echo testing speed and latency...
@@ -69,7 +97,7 @@ echo Press anykey to exit.
 pause>nul
 goto :eof
 
-:singlessr
+:ssrtest
 echo Found single ssr link.
 echo.
 call :readconf "!link!"
@@ -97,20 +125,18 @@ goto :eof
 call :makelogname
 echo Found subscribe link.
 echo If you have imported an ss/v2ray subscribe link which doesn't contain a Group Name, you can write a custom name below.
-echo If you have imported an ssr link which contains a Group Name, press enter to skip.
+echo If you have imported an ssr link which contains a Group Name, press Enter to skip.
 set /p group=Group Name: 
 echo.
-for /f "delims=" %%i in ('tools\curl --silent "!link!"^|tools\speedtestutil sub') do (
-call :chklink "%%i"
-if "!linktype!" == "vmess" call :batchv2 "%%~i"
-if "!linktype!" == "ss" call :batchclash "%%~i"
-if "!linktype!" == "ssr" call :batchssr "%%~i"
+for /f "delims=" %%i in ('tools\curl -L --silent "!link!"^|tools\speedtestutil sub') do (
+for /f "delims=, tokens=1-5,*" %%a in ("%%i") do (set linktype=%%a&&set groupstr=%%b&&set ps=%%c&&set add=%%d&&set port=%%e&&set proxystr=%%f)
+call :chkexcluderemark
+call :batchtest
 )
 call :logeof
-choice /M "Reached the end of file. Do you want to export the result to a png file?"
+choice /M "Reached EOF. Do you want to export the result to a png file?"
 if %errorlevel% equ 1 call :exportresult
-if %errorlevel% equ 2 goto :eof
-echo press anykey to exit.
+echo Press anykey to exit.
 pause>nul
 goto :eof
 
@@ -133,7 +159,7 @@ goto :eof
 
 :logeof
 for /f %%i in ("%date:/=-%") do set curdate=%%i
-echo Generated at %curdate% %time%>>%logfile%
+echo Generated at %curdate% %time% by Stair Speedtest>>%logfile%
 goto :eof
 
 :chklink
@@ -146,6 +172,28 @@ call :instr "ss://" "%~1"
 if %retval% equ 0 (set linktype=ss&&goto :eof)
 call :instr "ssr://" "%~1"
 if %retval% equ 0 (set linktype=ssr&&goto :eof)
+goto :eof
+
+:batchtest
+::call :readconf %1
+if %excluded% equ 1 goto :eof
+echo.
+if not "%group%" == "" set groupstr=%group%
+echo Current Server Group: %groupstr% Name: %ps%
+echo Now performing tcping...
+call :chkping %add% %port%
+if "%pkloss%" == "100.00%%" (
+echo Cannot connect to server. Skipping speedtest...
+set speed=0.00KB
+) else (
+echo Now performing speedtest...
+call :buildjson
+call :runclient
+call :perform
+call :killclient
+)
+echo Result: DL.Speed: %speed% Pk.Loss: %pkloss% Avg.Ping: %avgping%
+call :writelog
 goto :eof
 
 :batchv2
@@ -229,7 +277,7 @@ echo %proxystr% > config.json
 goto :eof
 
 :readconf
-for /f "delims=, tokens=1-4,*" %%a in ('echo "%~1"^|tools\speedtestutil') do (set groupstr=%%a&&set ps=%%b&&set add=%%c&&set port=%%d&&set proxystr=%%e)
+for /f "delims=, tokens=1-5,*" %%a in ("%~1") do (set linktype=%%a&&set groupstr=%%b&&set ps=%%c&&set add=%%d&&set port=%%e&&set proxystr=%%f)
 call :chkexcluderemark
 goto :eof
 
@@ -244,12 +292,15 @@ for /L %%i in (0,1,%exclude_remarks_count%) do (
 )
 goto :eof
 
-:buildssconf
-goto :eof
-
 :runclash
 wscript tools\runclash.vbs //B
 call :sleep 3
+goto :eof
+
+:runclient
+if "%linktype%" == "vmess" call :runv2core
+if "%linktype%" == "ss" call :runss
+if "%linktype%" == "ssr" call :runssr
 goto :eof
 
 :runv2core
@@ -257,9 +308,23 @@ wscript tools\runv2core.vbs //B
 call :sleep 3
 goto :eof
 
+:runss
+rem fix obfs-local
+cd tools
+wscript runss.vbs //B
+cd ..
+call :sleep 3
+goto :eof
+
 :runssr
 wscript tools\runssr.vbs //B
 call :sleep 3
+goto :eof
+
+:killclient
+if "%linktype%" == "vmess" call :killv2core
+if "%linktype%" == "ss" call :killss
+if "%linktype%" == "ssr" call :killssr
 goto :eof
 
 :killclash
@@ -270,8 +335,12 @@ goto :eof
 tskill v2-core>nul 2>nul
 goto :eof
 
+:killss
+tskill ss-libev>nul 2>nul
+goto :eof
+
 :killssr
-tskill ssr-local>nul 2>nul
+tskill ssr-libev>nul 2>nul
 goto :eof
 
 :sleep
@@ -303,7 +372,7 @@ goto :eof
 
 :perform
 set speed=00
-tools\curl -m 3 -x socks5://127.0.0.1:65432 http://cachefly.cachefly.net/100mb.test -L -s>nuk 2>nul
+tools\curl -m 3 -x socks5://127.0.0.1:65432 http://cachefly.cachefly.net/100mb.test -L -s>nul 2>nul
 for /f %%i in ('tools\curl -m 10 -o test.test -x socks5://127.0.0.1:65432 http://cachefly.cachefly.net/100mb.test -L -s -skw "%%{speed_download}"') do set speed=%%i
 rem http://updates-http.cdn-apple.com/2019SpringFCS/fullrestores/091-79183/ECD07652-499F-11E9-99DE-E74576CE070F/iPhone11,8_12.2_16E227_Restore.ipsw
 rem http://cachefly.cachefly.net/100mb.test

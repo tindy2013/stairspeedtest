@@ -120,7 +120,7 @@ function loadevent() {
 	drawcolor();
 	addRow(0,"<td onclick='clickevent();'>Group</td><td onclick='clickevent();'>Remarks</td><td onclick='clickevent();'>Loss</td><td onclick='clickevent();'>Ping</td><td onclick='loadevent();'>AvgSpeed</td>","first");
 	addRow(-1,gentime,"gentime");
-	document.getElementById("gentime").setAttribute("colspan",table.rows[0].cells.length);
+	document.getElementById("gentime").cells[0].setAttribute("colspan",table.rows[0].cells.length);
 }
 
 
