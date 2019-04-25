@@ -4,7 +4,6 @@ setlocal enabledelayedexpansion
 
 :init
 ::chcp 936>nul
-call :killclash
 call :killv2core
 call :killssr
 call :readpref
@@ -65,67 +64,11 @@ echo Speedtest done. Press anykey to exit.
 pause>nul
 goto :eof
 
-:v2test
-call :readconf "!link!"
-echo Server name: !ps!
-echo testing speed and latency...
-call :buildjson
-call :runv2core
-call :perform
-call :killv2core
-call :chkping %add% %port%
-echo Statistics:
-echo 	DL.Speed: %speed% Pk.Loss: %pkloss% Avg.Ping: %avgping%
-echo.
-echo Press anykey to exit.
-pause>nul
-goto :eof
-
-:sstest
-call :readconf "!link!"
-echo Server name: !ps!
-echo testing speed and latency...
-call :buildclash
-call :runclash
-call :perform
-call :killclash
-call :chkping %add% %port%
-echo Statistics:
-echo 	DL.Speed: %speed% Pk.Loss: %pkloss% Avg.Ping: %avgping%
-echo.
-echo Press anykey to exit.
-pause>nul
-goto :eof
-
-:ssrtest
-echo Found single ssr link.
-echo.
-call :readconf "!link!"
-echo Server Group: !groupstr! Name: !ps!
-echo Now performing tcping...
-call :chkping %add% %port%
-if "%pkloss%" == "100.00%%" (
-echo Cannot connect to server. Skipping speedtest...
-set speed=0.00KB
-) else (
-echo Now performing speedtest...
-call :buildjson
-call :runssr
-call :perform
-call :killssr
-)
-echo Statistics:
-echo 	DL.Speed: %speed% Pk.Loss: %pkloss% Avg.Ping: %avgping%
-echo.
-echo press anykey to exit.
-pause>nul
-goto :eof
-
 :subscribe
 call :makelogname
 echo Found subscribe link.
-echo If you have imported an ss/v2ray subscribe link which doesn't contain a Group Name, you can write a custom name below.
-echo If you have imported an ssr link which contains a Group Name, press Enter to skip.
+echo If you have imported an v2ray subscribe link which doesn't contain a Group Name, you can write a custom name below.
+echo If you have imported an ss/ssr link which contains a Group Name, press Enter to skip.
 set /p group=Group Name: 
 echo.
 for /f "delims=" %%i in ('tools\curl -L --silent "!link!"^|tools\speedtestutil sub') do (
@@ -196,88 +139,12 @@ echo Result: DL.Speed: %speed% Pk.Loss: %pkloss% Avg.Ping: %avgping%
 call :writelog
 goto :eof
 
-:batchv2
-call :readconf %1
-if %excluded% equ 1 goto :eof
-echo.
-if not "%group%" == "" set groupstr=%group%
-echo Current Server Group: %groupstr% Name: %ps%
-echo Now performing tcping...
-call :chkping %add% %port%
-if "%pkloss%" == "100.00%%" (
-echo Cannot connect to server. Skipping speedtest...
-set speed=0.00KB
-) else (
-echo Now performing speedtest...
-call :buildjson
-call :runv2core
-call :perform
-call :killv2core
-)
-echo Result: DL.Speed: %speed% Pk.Loss: %pkloss% Avg.Ping: %avgping%
-call :writelog
-goto :eof
-
-:batchclash
-call :readconf %1
-if %excluded% equ 1 goto :eof
-echo.
-if not "%group%" == "" set groupstr=%group%
-echo Current Server Group: %groupstr% Name: %ps%
-echo Now performing tcping...
-call :chkping %add% %port%
-if "%pkloss%" == "100.00%%" (
-echo Cannot connect to server. Skipping speedtest...
-set speed=0.00KB
-) else (
-echo Now performing speedtest...
-call :buildclash
-call :runclash
-call :perform
-call :killclash
-)
-echo Result: DL.Speed: %speed% Pk.Loss: %pkloss% Avg.Ping: %avgping%
-call :writelog
-goto :eof
-
-:batchssr
-call :readconf %1
-if %excluded% equ 1 goto :eof
-echo.
-if not "%group%" == "" set groupstr=%group%
-echo Current Server Group: %groupstr% Name: %ps%
-echo Now performing tcping...
-call :chkping %add% %port%
-if "%pkloss%" == "100.00%%" (
-echo Cannot connect to server. Skipping speedtest...
-set speed=0.00KB
-) else (
-echo Now performing speedtest...
-call :buildjson
-call :runssr
-call :perform
-call :killssr
-)
-echo Result: DL.Speed: %speed% Pk.Loss: %pkloss% Avg.Ping: %avgping%
-call :writelog
-goto :eof
-
-:buildclash
-echo socks-port: 65432 > config.yml
-echo mode: Rule >> config.yml
-echo allow-lan: true >> config.yml
-echo Proxy: >> config.yml
-echo %proxystr% >> config.yml
-echo Rule: >> config.yml
-echo - MATCH,proxy >> config.yml
-goto :eof
-
 :buildjson
 echo %proxystr% > config.json
 goto :eof
 
 :readconf
-for /f "delims=, tokens=1-5,*" %%a in ("%~1") do (set linktype=%%a&&set groupstr=%%b&&set ps=%%c&&set add=%%d&&set port=%%e&&set proxystr=%%f)
+for /f "delims=, tokens=1-5,*" %%a in ('echo "%~1" ^| tools\speedtestutil') do (set linktype=%%a&&set groupstr=%%b&&set ps=%%c&&set add=%%d&&set port=%%e&&set proxystr=%%f)
 call :chkexcluderemark
 goto :eof
 
@@ -290,11 +157,6 @@ for /L %%i in (0,1,%exclude_remarks_count%) do (
 		if !retval! equ 0 set excluded=1
 	)
 )
-goto :eof
-
-:runclash
-wscript tools\runclash.vbs //B
-call :sleep 3
 goto :eof
 
 :runclient
@@ -325,10 +187,6 @@ goto :eof
 if "%linktype%" == "vmess" call :killv2core
 if "%linktype%" == "ss" call :killss
 if "%linktype%" == "ssr" call :killssr
-goto :eof
-
-:killclash
-tskill clash>nul 2>nul
 goto :eof
 
 :killv2core
@@ -367,13 +225,12 @@ set avgping=%%~j
 set avgping=!avgping:ms=!
 set avgping=!avgping:~1,-1!
 )
-rem for /f %%k in ("%retstr%") do set avgping=%%k
 goto :eof
 
 :perform
 set speed=00
 tools\curl -m 3 -x socks5://127.0.0.1:65432 http://cachefly.cachefly.net/100mb.test -L -s>nul 2>nul
-for /f %%i in ('tools\curl -m 10 -o test.test -x socks5://127.0.0.1:65432 http://cachefly.cachefly.net/100mb.test -L -s -skw "%%{speed_download}"') do set speed=%%i
+for /f %%i in ('tools\curl -m 10 -o test.test -x socks5://127.0.0.1:65432 https://download.microsoft.com/download/2/2/A/22AA9422-C45D-46FA-808F-179A1BEBB2A7/office2007sp3-kb2526086-fullfile-en-us.exe -L -s -skw "%%{speed_download}"') do set speed=%%i
 rem http://updates-http.cdn-apple.com/2019SpringFCS/fullrestores/091-79183/ECD07652-499F-11E9-99DE-E74576CE070F/iPhone11,8_12.2_16E227_Restore.ipsw
 rem http://cachefly.cachefly.net/100mb.test
 rem https://download.microsoft.com/download/2/2/A/22AA9422-C45D-46FA-808F-179A1BEBB2A7/office2007sp3-kb2526086-fullfile-en-us.exe
