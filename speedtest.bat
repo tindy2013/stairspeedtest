@@ -1,17 +1,21 @@
 @echo off
-title vpn speedtest
+title Stair Speedtest
 setlocal enabledelayedexpansion
 
 :init
 call :killclash
 call :killv2core
 call :killssr
+call :readpref
 set group=
 set fasturl=
+set excluded=0
 mkdir results>nul 2>nul
 
 :main
-set /p link=link? 
+echo Welcome to Stair Speedtest!
+echo Which stair do you want to test today? (Supports single ss/ssr/v2ray link and their subscribe links) 
+set /p link=Link: 
 call :chklink "%link%"
 if "%linktype%" == "vmess" goto singlevmess
 if "%linktype%" == "ss" goto singless
@@ -24,12 +28,12 @@ goto :eof
 ::::subs
 
 :singlevmess
-echo found vmess link.
+echo Found single v2ray link.
 echo.
 goto v2test
 
 :singless
-echo found ss link.
+echo Found single ss link.
 echo.
 goto clashtest
 
@@ -45,7 +49,7 @@ call :chkping %add% %port%
 echo Statistics:
 echo 	DL.Speed: %speed% Pk.Loss: %pkloss% Avg.Ping: %avgping%
 echo.
-echo press anykey to exit.
+echo Press anykey to exit.
 pause>nul
 goto :eof
 
@@ -61,21 +65,27 @@ call :chkping %add% %port%
 echo Statistics:
 echo 	DL.Speed: %speed% Pk.Loss: %pkloss% Avg.Ping: %avgping%
 echo.
-echo press anykey to exit.
+echo Press anykey to exit.
 pause>nul
 goto :eof
 
 :singlessr
-echo found ssr link.
+echo Found single ssr link.
 echo.
 call :readconf "!link!"
 echo Server Group: !groupstr! Name: !ps!
-echo testing speed and latency...
+echo Now performing tcping...
+call :chkping %add% %port%
+if "%pkloss%" == "100.00%%" (
+echo Cannot connect to server. Skipping speedtest...
+set speed=0.00KB
+) else (
+echo Now performing speedtest...
 call :buildjson
 call :runssr
 call :perform
 call :killssr
-call :chkping %add% %port%
+)
 echo Statistics:
 echo 	DL.Speed: %speed% Pk.Loss: %pkloss% Avg.Ping: %avgping%
 echo.
@@ -85,9 +95,10 @@ goto :eof
 
 :subscribe
 call :makelogname
-echo found subscribe link.
-echo please customize your group name. press enter to skip.
-set /p group=group name: 
+echo Found subscribe link.
+echo If you have imported an ss/v2ray subscribe link which doesn't contain a Group Name, you can write a custom name below.
+echo If you have imported an ssr link which contains a Group Name, press enter to skip.
+set /p group=Group Name: 
 echo.
 for /f "delims=" %%i in ('tools\curl --silent "!link!"^|tools\speedtestutil sub') do (
 call :chklink "%%i"
@@ -96,7 +107,7 @@ if "!linktype!" == "ss" call :batchclash "%%~i"
 if "!linktype!" == "ssr" call :batchssr "%%~i"
 )
 call :logeof
-choice /M "end of file. do you want to export result to .png file?"
+choice /M "Reached the end of file. Do you want to export the result to a png file?"
 if %errorlevel% equ 1 call :exportresult
 if %errorlevel% equ 2 goto :eof
 echo press anykey to exit.
@@ -138,61 +149,69 @@ if %retval% equ 0 (set linktype=ssr&&goto :eof)
 goto :eof
 
 :batchv2
-echo.
 call :readconf %1
+if %excluded% equ 1 goto :eof
+echo.
 if not "%group%" == "" set groupstr=%group%
 echo Current Server Group: %groupstr% Name: %ps%
-echo.
+echo Now performing tcping...
+call :chkping %add% %port%
+if "%pkloss%" == "100.00%%" (
+echo Cannot connect to server. Skipping speedtest...
+set speed=0.00KB
+) else (
+echo Now performing speedtest...
 call :buildjson
 call :runv2core
 call :perform
 call :killv2core
-call :chkping %add% %port%
+)
 echo Result: DL.Speed: %speed% Pk.Loss: %pkloss% Avg.Ping: %avgping%
 call :writelog
-echo.
 goto :eof
 
 :batchclash
-echo.
 call :readconf %1
+if %excluded% equ 1 goto :eof
+echo.
 if not "%group%" == "" set groupstr=%group%
 echo Current Server Group: %groupstr% Name: %ps%
-echo.
+echo Now performing tcping...
+call :chkping %add% %port%
+if "%pkloss%" == "100.00%%" (
+echo Cannot connect to server. Skipping speedtest...
+set speed=0.00KB
+) else (
+echo Now performing speedtest...
 call :buildclash
 call :runclash
 call :perform
 call :killclash
-call :chkping %add% %port%
+)
 echo Result: DL.Speed: %speed% Pk.Loss: %pkloss% Avg.Ping: %avgping%
 call :writelog
-echo.
 goto :eof
 
 :batchssr
-echo.
 call :readconf %1
+if %excluded% equ 1 goto :eof
+echo.
 if not "%group%" == "" set groupstr=%group%
 echo Current Server Group: %groupstr% Name: %ps%
-echo.
+echo Now performing tcping...
+call :chkping %add% %port%
+if "%pkloss%" == "100.00%%" (
+echo Cannot connect to server. Skipping speedtest...
+set speed=0.00KB
+) else (
+echo Now performing speedtest...
 call :buildjson
 call :runssr
 call :perform
 call :killssr
-call :chkping %add% %port%
+)
 echo Result: DL.Speed: %speed% Pk.Loss: %pkloss% Avg.Ping: %avgping%
 call :writelog
-echo.
-goto :eof
-
-:instr
-echo "%~2"|find "%~1">nul
-set retval=!errorlevel!
-goto :eof
-
-:chrinstr
-set retval=0
-for /f "delims=%~1 tokens=1" %%z in ("%~2") do if "%~2" == "%%z" set retval=1
 goto :eof
 
 :buildclash
@@ -211,6 +230,18 @@ goto :eof
 
 :readconf
 for /f "delims=, tokens=1-4,*" %%a in ('echo "%~1"^|tools\speedtestutil') do (set groupstr=%%a&&set ps=%%b&&set add=%%c&&set port=%%d&&set proxystr=%%e)
+call :chkexcluderemark
+goto :eof
+
+:chkexcluderemark
+set excluded=0
+call :arrlength "exclude_remarks"
+for /L %%i in (0,1,%exclude_remarks_count%) do (
+	if defined exclude_remarks%%i (
+		call :instr "!exclude_remarks%%i!" "%ps%"
+		if !retval! equ 0 set excluded=1
+	)
+)
 goto :eof
 
 :buildssconf
@@ -272,7 +303,8 @@ goto :eof
 
 :perform
 set speed=00
-for /f %%i in ('tools\curl -m 15 -o test.test -x socks5://127.0.0.1:65432 http://cachefly.cachefly.net/100mb.test -L -s -skw "%%{speed_download}"') do set speed=%%i
+tools\curl -m 3 -x socks5://127.0.0.1:65432 http://cachefly.cachefly.net/100mb.test -L -s>nuk 2>nul
+for /f %%i in ('tools\curl -m 10 -o test.test -x socks5://127.0.0.1:65432 http://cachefly.cachefly.net/100mb.test -L -s -skw "%%{speed_download}"') do set speed=%%i
 rem http://updates-http.cdn-apple.com/2019SpringFCS/fullrestores/091-79183/ECD07652-499F-11E9-99DE-E74576CE070F/iPhone11,8_12.2_16E227_Restore.ipsw
 rem http://cachefly.cachefly.net/100mb.test
 rem https://download.microsoft.com/download/2/2/A/22AA9422-C45D-46FA-808F-179A1BEBB2A7/office2007sp3-kb2526086-fullfile-en-us.exe
@@ -311,6 +343,30 @@ echo %logfile% | tools\speedtestutil export tools\util.js>%logpath%.htm
 cd results
 ..\tools\phantomjs ..\tools\simplerender.js %logname%.htm %logname%.png
 cd ..
+goto :eof
+
+::base functions
+
+:readpref
+for /f "eol=[ delims== tokens=1,2" %%i in (pref.ini) do set %%i=%%j
+goto :eof
+
+:instr
+echo "%~2"|find "%~1">nul
+set retval=!errorlevel!
+goto :eof
+
+:chrinstr
+set retval=0
+for /f "delims=%~1 tokens=1" %%z in ("%~2") do if "%~2" == "%%z" set retval=1
+goto :eof
+
+:arrlength
+set i=0
+set arrname=%~1
+:arrlengthloop
+if defined %arrname%%i% (set /a i=%i%+1&&goto arrlengthloop)
+set /a %arrname%_count=%i%-1
 goto :eof
 
 :placeholder
