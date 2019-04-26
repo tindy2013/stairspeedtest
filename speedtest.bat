@@ -11,6 +11,7 @@ set group=
 set fasturl=
 set excluded=0
 mkdir results>nul 2>nul
+mkdir temp>nul 2>nul
 
 :main
 echo Welcome to Stair Speedtest!
@@ -54,7 +55,7 @@ set speed=0.00KB
 echo Now performing speedtest...
 call :buildjson
 call :runclient
-call :perform
+call :performmc
 call :killclient
 )
 echo Statistics:
@@ -132,7 +133,7 @@ set speed=0.00KB
 echo Now performing speedtest...
 call :buildjson
 call :runclient
-call :perform
+call :performmc
 call :killclient
 )
 echo Result: DL.Speed: %speed% Pk.Loss: %pkloss% Avg.Ping: %avgping%
@@ -183,6 +184,10 @@ wscript tools\runssr.vbs //B
 call :sleep 3
 goto :eof
 
+:runprivoxy
+wscript tools\runprivoxy.vbs //B
+goto :eof
+
 :killclient
 if "%linktype%" == "vmess" call :killv2core
 if "%linktype%" == "ss" call :killss
@@ -200,6 +205,10 @@ goto :eof
 
 :killssr
 tskill ssr-libev>nul 2>nul
+goto :eof
+
+:killprivoxy
+tskill stairst_privoxy>nul 2>nul
 goto :eof
 
 :sleep
@@ -246,6 +255,21 @@ set speed=%speed:~0,-7%.%speeddec:~0,2%MB
 )
 goto :eof
 
+:performmc
+set speed=0.00KB
+del /f /q temp\*
+call :runprivoxy
+for /f "tokens=*" %%i in ('tools\aria2c --conf-path tools\aria2.conf https://download.microsoft.com/download/2/2/A/22AA9422-C45D-46FA-808F-179A1BEBB2A7/office2007sp3-kb2526086-fullfile-en-us.exe') do (
+call :chkspeedline "%%~i"
+if !isspeed! equ 1 for /f "delims=| tokens=3" %%j in ("%%~i") do set speed=%%j
+)
+call :killprivoxy
+del /f /q temp\*
+for /f %%i in ("%speed%") do set speed=%%i
+set speed=%speed:i=%
+set speed=%speed:/s=%
+goto :eof
+
 :performfast
 set speed=00
 tools\curl -o fast.htm --silent -x socks5://127.0.0.1:65432 https://fast.com
@@ -270,6 +294,14 @@ echo %logfile% | tools\speedtestutil export tools\util.js>%logpath%.htm
 cd results
 ..\tools\phantomjs ..\tools\simplerender.js %logname%.htm %logname%.png
 cd ..
+goto :eof
+
+:chkspeedline
+set isspeed=0
+call :instr "MiB/s" "%~1"
+if %retval% equ 0 set isspeed=1
+call :instr "KiB/s" "%~1"
+if %retval% equ 0 set isspeed=1
 goto :eof
 
 ::base functions
