@@ -13,7 +13,7 @@ A small script that can test the stairs' download speed, packet loss and latency
 **Also thanks to [CareyWang](https://github.com/CareyWang) for his help and debug.**
 ## Known Bugs
 * ~~Currently does not support http obfs in vmess link. (Clash doesn't support it at all, but will switch to v2ray-core soon to enable all v2ray functions.)~~ Already switched to v2ray-core. kcp and h2 support are on the way.
-* ~~If encryption method is *chacha20* in ssr link, ssr client will crash and no speedtest result will be displayed. (This is a bug in ssr-native, the only solution by now is to switch to another client like ssr-libev. Will do it soon.)~~ Already switched to ssr-libev. But there might still be some unknown bugs. USE AT YOUR OWN RISK. Will add ccr-csharp client soon.
+* ~~If encryption method is *chacha20* in ssr link, ssr client will crash and no speedtest result will be displayed. (This is a bug in ssr-native, the only solution by now is to switch to another client like ssr-libev. Will do it soon.)~~ Already switched to ssr-libev. But there might still be some unknown bugs. USE AT YOUR OWN RISK. Will add ssr-csharp client soon.
 * ~~No obfs options for ss links. (Clash hardly supports it. Will switch to ss-libev soon.) (It would still be quite hard to analyze different kinds of ss links. ;) )~~ Switched to ss-libev with obfs supports.
 ## Future Functions
 * Fast.com speedtest has been added to the script, but it is still under testing.
