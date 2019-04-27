@@ -6,6 +6,7 @@ setlocal enabledelayedexpansion
 ::chcp 936>nul
 call :killv2core
 call :killssr
+call :killss
 call :readpref
 set group=
 set fasturl=
@@ -25,7 +26,7 @@ echo no valid link found. press anykey to exit.
 pause>nul
 goto :eof
 
-::::subs
+rem subs
 
 :singlevmess
 echo Found single v2ray link.
@@ -83,17 +84,18 @@ echo Press anykey to exit.
 pause>nul
 goto :eof
 
-::::functions
+rem functions
 
 :makelogname
-for /f "tokens=1" %%i in ("%date%") do set curdate=%%i
-set curdate=%curdate:/=%
-for /f "tokens=*" %%i in ('time /T') do set curtime=%%i
-set logname=%curdate%-%curtime::=%
+for /f "tokens=1,2" %%i in ("%date%") do (
+call :instr "/" "%%i"
+if !retval! equ 0 (set curdate=%%i) else (set curdate=%%j)
+)
+set curtime=%time:~0,5%
+set logname=%curdate:/=%-%curtime::=%
 set logpath=results\%logname%
-set logfile=results\%logname%.log
+set logfile=%logpath%.log
 echo group,remarks,loss,ping,avgspeed>%logfile%
-rem echo.>%logfile%
 goto :eof
 
 :writelog
@@ -101,8 +103,7 @@ echo %groupstr%,%ps%,%pkloss%,%avgping%,%speed%>>%logfile%
 goto :eof
 
 :logeof
-for /f %%i in ("%date:/=-%") do set curdate=%%i
-echo Generated at %curdate% %time% by Stair Speedtest>>%logfile%
+echo Generated at %curdate:/=-% %time% by Stair Speedtest>>%logfile%
 goto :eof
 
 :chklink
@@ -118,7 +119,6 @@ if %retval% equ 0 (set linktype=ssr&&goto :eof)
 goto :eof
 
 :batchtest
-::call :readconf %1
 if %excluded% equ 1 goto :eof
 echo.
 if not "%group%" == "" set groupstr=%group%
@@ -272,7 +272,7 @@ cd results
 cd ..
 goto :eof
 
-::base functions
+rem base functions
 
 :readpref
 for /f "eol=[ delims== tokens=1,2" %%i in (pref.ini) do set %%i=%%j
