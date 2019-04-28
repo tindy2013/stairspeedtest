@@ -1,9 +1,9 @@
 @echo off
 title Stair Speedtest
 setlocal enabledelayedexpansion
+if "%1" == "/rpc" (set rpc=1) else (set rpc=0)
 
 :init
-::chcp 936>nul
 call :killv2core
 call :killssr
 call :killss
@@ -12,6 +12,8 @@ set group=
 set fasturl=
 set excluded=0
 mkdir results>nul 2>nul
+mkdir temp>nul 2>nul
+if %rpc% equ 1 goto mainalt
 
 :main
 echo Welcome to Stair Speedtest!
@@ -26,7 +28,18 @@ echo no valid link found. press anykey to exit.
 pause>nul
 goto :eof
 
-rem subs
+:mainalt
+for /f "delims=^ tokens=1,2" %%i in ('echo "%2"^|tools\webstring local') do (set link=%%i&&set group=%%j)
+call :chklink "!link!"
+if "%linktype%" == "vmess" goto singletestalt
+if "%linktype%" == "ss" goto singletestalt
+if "%linktype%" == "ssr" goto singletestalt
+if "%linktype%" == "sub" goto subscribealt
+echo !link!
+echo {"info":"error","reason":"norecoglink"}
+echo {"info":"eof"}
+set rpc=0
+goto :eof
 
 :singlevmess
 echo Found single v2ray link.
@@ -65,6 +78,27 @@ echo Speedtest done. Press anykey to exit.
 pause>nul
 goto :eof
 
+:singletestalt
+call :readconf "!link!" "true"
+echo {"info":"gotserver","id":0,"group":"!groupstr!","remarks":"!ps!"}|tools\webstring
+echo {"info":"startping","id":0}
+call :chkping %add% %port%
+if "%pkloss%" == "100.00%%" (
+echo {"info":"error","reason":"noconnection","id":0}
+set speed=0.00KB
+) else (
+echo {"info":"gotping","id":0,"ping":"%avgping%","loss":"%pkloss%"}
+echo {"info":"startspeed","id":0}
+call :buildjson
+call :runclient
+call :perform
+call :killclient
+echo {"info":"gotspeed","id":0,"speed":"%speed%"}
+)
+echo {"info":"eof"}
+set rpc=0
+goto :eof
+
 :subscribe
 call :makelogname
 echo Found subscribe link.
@@ -78,13 +112,29 @@ call :chkexcluderemark
 call :batchtest
 )
 call :logeof
-choice /M "Reached EOF. Do you want to export the result to a png file?"
-if %errorlevel% equ 1 call :exportresult
+rem choice /M "Reached EOF. Do you want to export the result to a png file?"
+rem if %errorlevel% equ 1 call :exportresult
+call :exportresult
+echo Result png saved to "%logpath%.png".
 echo Press anykey to exit.
 pause>nul
 goto :eof
 
-rem functions
+:subscribealt
+set id=0
+call :makelogname
+for /f "delims=*" %%i in ('tools\wget -qO- "!link!"^|tools\speedtestutil sub /web') do (
+for /f "delims=, tokens=1-5,*" %%a in ("%%i") do (set linktype=%%a&&set groupstr=%%b&&set ps=%%c&&set add=%%d&&set port=%%e&&set proxystr=%%f)
+call :chkexcluderemark
+call :batchtestalt
+set /a id=!id!+1
+)
+call :logeof
+call :exportresult
+echo {"info":"picsaved","path":"%logpath%.png"}
+echo {"info":"eof"}
+set rpc=0
+goto :eof
 
 :makelogname
 for /f "tokens=1,2" %%i in ("%date%") do (
@@ -136,6 +186,27 @@ call :perform
 call :killclient
 )
 echo Result: DL.Speed: %speed% Pk.Loss: %pkloss% Avg.Ping: %avgping%
+call :writelog
+goto :eof
+
+:batchtestalt
+if %excluded% equ 1 goto :eof
+if not "%group%" == "" set groupstr=%group%
+echo {"info":"gotserver","id":%id%,"group":"!groupstr!","remarks":"!ps!"}|tools\webstring
+echo {"info":"startping","id":%id%}
+call :chkping %add% %port%
+if "%pkloss%" == "100.00%%" (
+echo {"info":"error","data":"noconnection","id":%id%}
+set speed=0.00KB
+) else (
+echo {"info":"gotping","id":%id%,"ping":"%avgping%","loss":"%pkloss%"}
+echo {"info":"startspeed","id":%id%}
+call :buildjson
+call :runclient
+call :perform
+call :killclient
+)
+echo {"info":"gotspeed","id":%id%,"speed":"%speed%"}
 call :writelog
 goto :eof
 
@@ -271,8 +342,6 @@ cd results
 ..\tools\phantomjs ..\tools\simplerender.js %logname%.htm %logname%.png
 cd ..
 goto :eof
-
-rem base functions
 
 :readpref
 for /f "eol=[ delims== tokens=1,2" %%i in (pref.ini) do set %%i=%%j
