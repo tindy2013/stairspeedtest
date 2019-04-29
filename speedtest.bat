@@ -22,7 +22,7 @@ if "%linktype%" == "vmess" goto singlevmess
 if "%linktype%" == "ss" goto singless
 if "%linktype%" == "ssr" goto singlessr
 if "%linktype%" == "sub" goto subscribe
-echo no valid link found. press anykey to exit.
+echo No valid link found. Press anykey to exit.
 pause>nul
 goto :eof
 
@@ -91,7 +91,9 @@ for /f "tokens=1,2" %%i in ("%date%") do (
 call :instr "/" "%%i"
 if !retval! equ 0 (set curdate=%%i) else (set curdate=%%j)
 )
-set curtime=%time:~0,5%
+for /f %%i in ("%time:~0,5%") do (
+if "!time~0,1!" == " " (set curtime=0%%i) else (set curtime=%%i)
+)
 set logname=%curdate:/=%-%curtime::=%
 set logpath=results\%logname%
 set logfile=%logpath%.log
@@ -99,11 +101,11 @@ echo group,remarks,loss,ping,avgspeed>%logfile%
 goto :eof
 
 :writelog
-echo %groupstr%,%ps%,%pkloss%,%avgping%,%speed%>>%logfile%
+echo %groupstr%,%ps%,%pkloss%,%avgping%,%speed%>>"%logfile%"
 goto :eof
 
 :logeof
-echo Generated at %curdate:/=-% %time% by Stair Speedtest>>%logfile%
+echo Generated at %curdate:/=-% %time% by Stair Speedtest>>"%logfile%"
 goto :eof
 
 :chklink
@@ -266,9 +268,9 @@ set speed=%speed:~0,-7%.%speeddec:~0,2%MB
 goto :eof
 
 :exportresult
-echo %logfile% | tools\speedtestutil export tools\util.js>%logpath%.htm
+echo %logfile% | tools\speedtestutil export tools\util.js>"%logpath%.htm"
 cd results
-..\tools\phantomjs ..\tools\simplerender.js %logname%.htm %logname%.png
+..\tools\phantomjs ..\tools\simplerender.js "%logname%.htm" "%logname%.png"
 cd ..
 goto :eof
 
