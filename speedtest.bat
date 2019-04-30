@@ -3,14 +3,12 @@ title Stair Speedtest
 setlocal enabledelayedexpansion
 
 :init
-::chcp 936>nul
 call :killv2core
 call :killssr
 call :killss
 call :readpref
 set group=
 set fasturl=
-set excluded=0
 mkdir results>nul 2>nul
 
 :main
@@ -18,30 +16,13 @@ echo Welcome to Stair Speedtest!
 echo Which stair do you want to test today? (Supports single ss/ssr/v2ray link and their subscribe links) 
 set /p link=Link: 
 call :chklink "!link!"
-if "%linktype%" == "vmess" goto singlevmess
-if "%linktype%" == "ss" goto singless
-if "%linktype%" == "ssr" goto singlessr
+if "%linktype%" == "vmess" (echo Found single v2ray link.&&goto singletest)
+if "%linktype%" == "ss" (echo Found single ss link.&&goto singletest)
+if "%linktype%" == "ssr" (echo Found single ssr link.&&goto singletest)
 if "%linktype%" == "sub" goto subscribe
 echo No valid link found. Press anykey to exit.
 pause>nul
 goto :eof
-
-rem subs
-
-:singlevmess
-echo Found single v2ray link.
-echo.
-goto singletest
-
-:singless
-echo Found single ss link.
-echo.
-goto singletest
-
-:singlessr
-echo Found single ssr link.
-echo.
-goto singletest
 
 :singletest
 call :readconf "!link!"
@@ -75,16 +56,15 @@ echo.
 for /f "delims=" %%i in ('tools\curl -L --silent "!link!"^|tools\speedtestutil sub') do (
 for /f "delims=, tokens=1-5,*" %%a in ("%%i") do (set linktype=%%a&&set groupstr=%%b&&set ps=%%c&&set add=%%d&&set port=%%e&&set proxystr=%%f)
 call :chkexcluderemark
+call :chkincluderemark
 call :batchtest
 )
 call :logeof
-choice /M "Reached EOF. Do you want to export the result to a png file?"
-if %errorlevel% equ 1 call :exportresult
+call :exportresult
+echo Result png saved to "%logpath%.png".
 echo Press anykey to exit.
 pause>nul
 goto :eof
-
-rem functions
 
 :makelogname
 for /f "tokens=1,2" %%i in ("%date%") do (
@@ -92,7 +72,7 @@ call :instr "/" "%%i"
 if !retval! equ 0 (set curdate=%%i) else (set curdate=%%j)
 )
 for /f %%i in ("%time:~0,5%") do (
-if "!time~0,1!" == " " (set curtime=0%%i) else (set curtime=%%i)
+if "!time:~0,1!" == " " (set curtime=0%%i) else (set curtime=%%i)
 )
 set logname=%curdate:/=%-%curtime::=%
 set logpath=results\%logname%
@@ -122,6 +102,7 @@ goto :eof
 
 :batchtest
 if %excluded% equ 1 goto :eof
+if %included% equ 0 goto :eof
 echo.
 if not "%group%" == "" set groupstr=%group%
 echo Current Server Group: %groupstr% Name: %ps%
@@ -148,15 +129,29 @@ goto :eof
 :readconf
 for /f "delims=, tokens=1-5,*" %%a in ('echo "%~1" ^| tools\speedtestutil') do (set linktype=%%a&&set groupstr=%%b&&set ps=%%c&&set add=%%d&&set port=%%e&&set proxystr=%%f)
 call :chkexcluderemark
+call :chkincluderemark
 goto :eof
 
 :chkexcluderemark
 set excluded=0
 call :arrlength "exclude_remarks"
+if %exclude_remarks_count% equ -1 goto :eof
 for /L %%i in (0,1,%exclude_remarks_count%) do (
 	if defined exclude_remarks%%i (
 		call :instr "!exclude_remarks%%i!" "%ps%"
 		if !retval! equ 0 set excluded=1
+	)
+)
+goto :eof
+
+:chkincluderemark
+set included=0
+call :arrlength "include_remarks"
+if %include_remarks_count% equ -1 (set included=1&&goto :eof)
+for /L %%i in (0,1,%include_remarks_count%) do (
+	if defined include_remarks%%i (
+		call :instr "!include_remarks%%i!" "%ps%"
+		if !retval! equ 0 set included=1
 	)
 )
 goto :eof
@@ -173,7 +168,6 @@ call :sleep 3
 goto :eof
 
 :runss
-rem fix obfs-local
 cd tools
 wscript runss.vbs //B
 cd ..
@@ -234,9 +228,6 @@ goto :eof
 set speed=00
 tools\curl -m 3 -x socks5://127.0.0.1:65432 http://cachefly.cachefly.net/100mb.test -L -s>nul 2>nul
 for /f %%i in ('tools\curl -m 10 -o test.test -x socks5://127.0.0.1:65432 https://download.microsoft.com/download/2/2/A/22AA9422-C45D-46FA-808F-179A1BEBB2A7/office2007sp3-kb2526086-fullfile-en-us.exe -L -s -skw "%%{speed_download}"') do set speed=%%i
-rem http://updates-http.cdn-apple.com/2019SpringFCS/fullrestores/091-79183/ECD07652-499F-11E9-99DE-E74576CE070F/iPhone11,8_12.2_16E227_Restore.ipsw
-rem http://cachefly.cachefly.net/100mb.test
-rem https://download.microsoft.com/download/2/2/A/22AA9422-C45D-46FA-808F-179A1BEBB2A7/office2007sp3-kb2526086-fullfile-en-us.exe
 set speed=%speed:.00=%
 if "%speed%" == "00" (set speed=0.00KB&&goto :eof)
 set speeddec=%speed:~-7%
@@ -274,10 +265,11 @@ cd results
 cd ..
 goto :eof
 
-rem base functions
-
 :readpref
-for /f "eol=[ delims== tokens=1,2" %%i in (pref.ini) do set %%i=%%j
+for /f "eol=[ delims== tokens=1,2" %%i in (pref.ini) do (
+set itemname=%%i
+if not "!itemname:~0,1!" == ";" set !itemname!=%%j
+)
 goto :eof
 
 :instr
