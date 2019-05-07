@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html>
-<meta charset="utf-8">
+<meta charset="utf-8" />
 <!-- 生产环境版本，优化了尺寸和速度 -->
 <script src="https://cdn.jsdelivr.net/npm/vue"></script>
 <!-- 开发环境版本，包含了有帮助的命令行警告 -->
@@ -13,239 +13,347 @@
 </style>
 
 <body>
-    <div id="app">
-        <el-row>
-            <el-col :span="22" :offset="1">
-                <el-card>
-                    <div slot="header">订阅信息</div>
-                    <el-container v-loading="loading" element-loading-text="疯狂测速中……">
-                        <el-form :inline="true">
-                            <el-form-item label="订阅链接：">
-                                <el-input v-model="subscription" style="width: 300px"></el-input>
-                            </el-form-item>
-                            <el-form-item>
-                                <el-button type="primary" @click="submit">提交</el-button>
-                            </el-form-item>
+	<div id="app">
+		<el-row>
+			<el-col :span="22" :offset="1">
+				<el-card>
+					<div slot="header">订阅信息</div>
+					<el-container v-loading="loading" element-loading-text="疯狂测速中……">
+						<el-form :inline="true">
+							<el-form-item label="订阅链接：">
+								<el-input v-model="subscription" style="width: 300px" @keyup.enter.native="submit"></el-input>
+							</el-form-item>
 							<el-form-item label="自定义组名：">
-                                <el-input v-model="groupname" style="width: 200px"></el-input>
-                            </el-form-item>
-                        </el-form>
-                    </el-container>
-                </el-card>
+								<el-input v-model="groupname" style="width: 200px" @keyup.enter.native="submit"></el-input>
+							</el-form-item>
+							<el-form-item>
+								<el-button type="primary" @click="submit">提交</el-button>
+							</el-form-item>
+						</el-form>
+					</el-container>
+				</el-card>
 
-                <br>
+				<br>
+				<!--
+				<el-card>
+					<div slot="header">操作</div>
+					<el-container>
+						<el-form :inline="true">
+							<el-form-item>
+								<el-button type="primary" @click="submit">提交</el-button>
+							</el-form-item>
+							<el-form-item>
+								<el-button type="secondary">终止</el-button>
+							</el-form-item>
+						</el-form>
+					</el-container>
+				</el-card>
+				
+				<br>
+				-->
+				<el-card>
+					<div slot="header">结果</div>
+					<el-container>
+						<el-table :data="result" :cell-style="colorCell" size="medium" ref="result" @sort-method="sort">
+							<el-table-column label="Group" align="center" prop="group" width="300" sortable>
+							</el-table-column>
+							<el-table-column label="Remark" align="center" prop="remark" width="300" sortable>
+							</el-table-column>
+							<el-table-column label="Loss" align="center" prop="loss" width="100" sortable>
+							</el-table-column>
+							<el-table-column label="Ping" align="center" prop="ping" width="100" sortable>
+							</el-table-column>
+							<el-table-column label="AvgSpeed" align="center" prop="speed" width="150" sortable>
+							</el-table-column>
+						</el-table>
+					</el-container>
+				</el-card>
+			</el-col>
+		</el-row>
 
-                <el-card>
-                    <div slot="header">结果</div>
-                    <el-container>
-                        <el-table :data="result" :cell-style="colorCell" size="medium" ref="result">
-                            <el-table-column label="Group" align="center" prop="group" width="300" sortable>
-                            </el-table-column>
-                            <el-table-column label="Remark" align="center" prop="remark" width="300" sortable>
-                            </el-table-column>
-                            <el-table-column label="Loss" align="center" prop="loss" width="100" sortable>
-                            </el-table-column>
-                            <el-table-column label="Ping" align="center" prop="ping" width="100" sortable>
-                            </el-table-column>
-                            <el-table-column label="AvgSpeed" align="center" prop="speed" width="150" sortable>
-                            </el-table-column>
-                        </el-table>
-                    </el-container>
-                </el-card>
-            </el-col>
-        </el-row>
-
-    </div>
+	</div>
 
 
-    <script>
-        const url = ''
-        const RGB = {
-            "0": [255, 255, 255],
-            "1": [0, 255, 0],
-            "2": [255, 255, 0],
-            "5": [255, 165, 0],
-            "10": [255, 255, 0],
-            "15": [255, 69, 0],
-            "20": [255, 0, 0],
-            "30": [255, 0, 0],
-        }
-/*
-        const json =
-            '[{"group":6,"remark":7,"loss":8,"ping":9,"speed":1.5},{"group":1,"remark":2,"loss":3,"ping":4,"speed":3},{"group":6,"remark":7,"loss":8,"ping":9,"speed":15},{"group":1,"remark":2,"loss":3,"ping":4,"speed":23},{"group":6,"remark":7,"loss":8,"ping":9,"speed":31},{"group":6,"remark":7,"loss":8,"ping":9,"speed":39},{"group":1,"remark":2,"loss":3,"ping":4,"speed":41}]'
-*/
-        let app = new Vue({
-            el: '#app',
-            data: {
-                loading: false,
-                subscription: 'https://www.google.com',
+	<script>
+		const url = ''
+		const RGB = {
+			"0": [255, 255, 255],
+			"1": [0, 255, 0],
+			"2": [255, 255, 0],
+			"5": [255, 165, 0],
+			"10": [255, 255, 0],
+			"15": [255, 69, 0],
+			"20": [255, 0, 0],
+			"30": [255, 0, 0],
+		}
+
+		let colorgroup = [
+			[255, 255, 255],
+			[128, 255, 0],
+			[255, 255, 0],
+			[255, 128, 192],
+			[255, 0, 0]
+		]
+		let bounds = [0, 64, 512, 4 * 1024, 16 * 1024]
+		
+		let interval=0
+
+		let resultjson = []
+
+		let app = new Vue({
+			el: '#app',
+			data: {
+				loading: false,
+				subscription: 'https://home.jiyou.fun/modules/servers/V2raySocks/osubscribe.php?sid=3638&token=3ryiHWBXpFxB',
 				groupname: '',
-                method: 'SOCKET',
-                result: [],
-            },
-            created() {
-                document.title = 'Speedtest'
-            },
-            methods: {
-                submit: function () {
-                    this.loading = true
-                    // this.result = JSON.parse(json)
-                    //console.log(this.$http)
-					starttest(this.subscription,this.groupname)
-                },
-                colorCell: function ({ row, column, rowIndex, columnIndex }) {
-                    let style = 'color: black; font-weight: 600;'
-                    if (columnIndex === 4) {
-                        let speed = row.speed
-                        //let color = this.matchColor(speed)
-						let color = getSpeedColor(getSpeed(speed))
-						//console.log(speed, color)
+				method: 'SOCKET',
+				result: [],
+			},
+			created() {
+				document.title = 'Stair Speedtest Web GUI'
+			},
+			methods: {
+				submit: function () {
+					this.loading = true
+					this.starttest(this.subscription, this.groupname)
+				},
+				colorCell: function ({
+					row,
+					column,
+					rowIndex,
+					columnIndex
+				}) {
+					let style = 'color: black; font-weight: 600;'
+					if (columnIndex === 4) {
+						let speed = row.speed
+						if (isNaN(parseFloat(speed))) return style
+						let color = this.getSpeedColor(this.getSpeed(speed))
+						return style + 'background: ' + color
+					} else {
+						return style
+					}
 
-                        return style + 'background: ' + color
-                    } else {
-                        return style
-                    }
+				},
+				sort(a,b) {
+					console.log(a)
+					console.log(b)
+				},
+				matchColor: function (speed) {
+					speed = parseFloat(this.getSpeed(speed)) / 1024
+					let rgb = [0, 0, 0]
+					if (speed <= 0) {
+						rgb = RGB['0']
+					} else if (speed > 30) {
+						rgb = RGB['30']
+					} else {
+						let match = ''
+						Object.keys(RGB).forEach(key => {
+							console.log(speed, key)
+							if (speed >= parseInt(key)) {
+								console.log(speed, parseInt(key))
+								match = key
+							}
+						})
+						rgb = RGB[match]
+					}
+					return 'rgb(' + rgb[0] + ',' + rgb[1] + ',' + rgb[2] + ')'
+				},
+				useNewPalette() {
+					colorgroup = [
+						[255, 255, 255],
+						[102, 255, 102],
+						[255, 255, 102],
+						[255, 178, 102],
+						[255, 102, 102],
+						[226, 140, 255],
+						[102, 204, 255],
+						[102, 102, 255]
+					];
+					bounds = [0, 64, 512, 4 * 1024, 16 * 1024, 24 * 1024, 32 * 1024, 40 * 1024];
+				},
+				getSpeed(speed) {
+					let value = parseFloat(speed.toString().slice(0, -2))
+					if (speed.toString().slice(-2) == "MB") {
+						value *= 1024
+					}
+					return value
+				},
+				getColor(lc, rc, level) {
+					let colors = [];
+					let r, g, b;
+					colors.push(parseInt(lc[0] * (1 - level) + rc[0] * level));
+					colors.push(parseInt(lc[1] * (1 - level) + rc[1] * level));
+					colors.push(parseInt(lc[2] * (1 - level) + rc[2] * level));
+					return colors;
+				},
+				getSpeedColor(speed) {
+					for (let i = 0; i < bounds.length - 1; i++) {
+						if (speed >= bounds[i] && speed <= bounds[i + 1]) {
+							let color = this.getColor(colorgroup[i], colorgroup[i + 1], ((speed - bounds[i]) / (bounds[i + 1] - bounds[i])))
+							//return this.rgb2hex(color)
+							return 'rgb(' + color[0] + ',' + color[1] + ',' + color[2] + ')'
+						}
+					}
+					//return rgb2hex(colorgroup[colorgroup.length - 1])
+					return 'rgb(' + colorgroup[colorgroup.length - 1][0] + ',' + colorgroup[colorgroup.length - 1][1] + ',' + colorgroup[colorgroup.length - 1][2] + ')'
+				},
+				speedCompare(iCol) {
+					return function Compare(speed1, speed2) {
+						let vValue1 = parseFloat(getSpeed(speed1.cells[iCol].firstChild.nodeValue.toString()))
+						let vValue2 = parseFloat(getSpeed(speed2.cells[iCol].firstChild.nodeValue.toString()))
+						if (isNaN(vValue1)) {
+							return -1
+						} 
+						if (isNaN(vValue2)) {
+							return 1
+						} 
+						if (vValue1 > vValue2) {
+							return 1
+						} 
+						if (vValue1 < vValue2) {
+							return -1
+						} 
+						return 0
+					};
+				},
+				connect(url) {
+					try {
+						ws = new WebSocket(url)
+					} catch (ex) {
+						//this.$message.error('Cannot connect: ' + ex)
+						this.$alert("后端连接错误！请检查后端运行情况！原因："+ex,"错误")
+						return;
+					}
+				},
+				disconnect() {
+					if (ws) {
+						ws.close()
+					}
+				},
+				send(msg) {
+					if (ws) {
+						try {
+							ws.send(msg)
+						} catch (ex) {
+							this.$message.error('Cannot send: ' + ex)
+						}
+					} else {
+						//this.$message.error('Cannot send: Not connected')
+						this.$alert("后端连接错误！请检查后端运行情况！","错误")
+					}
+				},
+				starttest(link, group) {
+					this.result = [];
+					this.connect("ws://127.0.0.1:65430")
+					if (ws) {
+						ws.addEventListener('open', function (ev) {
+							this.send(link + "^" + group)
+						})
+						ws.addEventListener('message', this.MessageEvent)
+					}
+				},
+				loopevent(id,tester) {
+					item = this.result[id]
+					switch (tester) {
+						case "ping":
+							item.ping="测试中..."
+							item.loss="测试中..."
+							this.$set(this.result, id, item)
+							break
+						case "speed":
+							item.speed="测试中..."
+							this.$set(this.result, id, item)
+							break
+					}
+				},					
+				MessageEvent(ev) {
+					console.log(ev.data)
+					let json = JSON.parse(ev.data)
+					let id = parseInt(json.id)
 
-                },
-                matchColor: function (speed) {
-					speed = parseFloat(getSpeed(speed))/1024
-                    let rgb = [0, 0, 0]
-                    if (speed <= 0) {
-                        rgb = RGB['0']
-                    } else if (speed > 30) {
-                        rgb = RGB['30']
-                    } else {
-                        let match = ''
-                        Object.keys(RGB).forEach(key => {
-                            console.log(speed, key)
-                            if (speed >= parseInt(key)) {
-                                console.log(speed, parseInt(key))
-                                match = key
-                            }
-                        })
-                        rgb = RGB[match]
-                    }
-
-                    return 'rgb(' + rgb[0] + ',' + rgb[1] + ',' + rgb[2] + ')'
-                }
-            }
-        })
-    </script>
-	<script language="javascript">
-		var resultjson=[];
-		var colorgroup=[[255,255,255],[128,255,0],[255,255,0],[255,128,192],[255,0,0]];
-		var bounds=[0,64,512,4*1024,16*1024];
-
-		function useNewPalette() {
-			colorgroup=[[255,255,255],[102,255,102],[255,255,102],[255,178,102],[255,102,102],[226,140,255],[102,204,255],[102,102,255]];
-			bounds=[0,64,512,4*1024,16*1024,24*1024,32*1024,40*1024];
-		}
-		
-		function getSpeed(speed){
-			var value=parseFloat(speed.toString().slice(0,-2));
-			if(speed.toString().slice(-2)=="MB") value*=1024;
-			return value;
-		}
-		
-		function rgb2hex(rgb) {
-			var reg=/(\d{1,3}),(\d{1,3}),(\d{1,3})/;
-			var arr=reg.exec(rgb);
-			function hex(x) {
-				return ("0" + parseInt(x).toString(16)).slice(-2);
-			}
-			var _hex="#" + hex(arr[1]) + hex(arr[2]) + hex(arr[3]);
-			return _hex.toUpperCase();
-		}
-		
-		function getColor(lc,rc,level) {
-			var colors=[];
-			var r,g,b;
-			colors.push(parseInt(lc[0]*(1-level)+rc[0]*level));
-			colors.push(parseInt(lc[1]*(1-level)+rc[1]*level));
-			colors.push(parseInt(lc[2]*(1-level)+rc[2]*level));
-			return colors;
-		}
-
-		function getSpeedColor(speed) {
-			for(var i=0;i<bounds.length-1;i++) {
-				if(speed>=bounds[i]&&speed<=bounds[i+1]) return rgb2hex(getColor(colorgroup[i],colorgroup[i+1],((speed-bounds[i])/(bounds[i+1]-bounds[i]))));
-			};
-			return rgb2hex(colorgroup[colorgroup.length-1]);
-		}
-		
-		function speedCompare(iCol){
-			return function Compare(speed1,speed2){
-				var vValue1 = parseFloat(getSpeed(speed1.cells[iCol].firstChild.nodeValue.toString()));
-				var vValue2 = parseFloat(getSpeed(speed2.cells[iCol].firstChild.nodeValue.toString()));
-				if(vValue1.isNaN) return -1;
-				if(vValue2.isNaN) return 1;
-				if(vValue1>vValue2) return 1;
-				if(vValue1<vValue2) return -1;
-				return 0;
-			};
-		}
-		
-		function connect(url) {
-			try {
-				ws = new WebSocket(url);
-			} catch (ex) {
-				alert('Cannot connect: ' + ex);
-				return;
-			}
-		}
-
-		function disconnect() {
-			if (ws) {
-				ws.close();
-			}
-		}
-
-		function send(msg) {
-			if (ws) {
-				try {
-					ws.send(msg);
-				} catch (ex) {
-					alert('Cannot send: ' + ex);
+					let item = {}
+					switch (json.info) {
+						case "gotserver":
+							item = {
+								"group": this.groupname==""?json.group:this.groupname,
+								"remark": json.remarks,
+								"loss": "",
+								"ping": "",
+								"speed": "0.00KB"
+							}
+							this.$set(this.result, id, item)
+							break
+						case "startping":
+							//inverval=setInterval("app.loopevent("+id+",\"ping\")",300)
+							this.loopevent(id,"ping")
+							break
+						case "gotping":
+							//clearInterval(interval)
+							item = this.result[id]
+							item.loss = json.loss
+							item.ping = json.ping
+							/*
+							item = {
+								"group": json.group,
+								"remark": json.remarks,
+								"loss": json.loss,
+								"ping": json.ping,
+								"speed": "0.00KB"
+							}
+							*/
+							this.$set(this.result, id, item)
+							break
+						case "startspeed":
+							//inverval=setInterval("app.loopevent("+id+",\"speed\")",300)
+							this.loopevent(id,"speed")
+							break
+						case "gotspeed":
+							//clearInterval(interval)
+							item = this.result[id]
+							item.speed = json.speed
+							/*
+							item = {
+								"group": json.group,
+								"remark": json.remarks,
+								"loss": json.loss,
+								"ping": json.ping,
+								"speed": json.speed
+							}
+							*/
+							this.$set(this.result, id, item)
+							break
+						case "picsaving":
+							app.$notify.info("保存结果图片中……")
+							break
+						case "picsaved":
+							app.$notify.success("图片已保存！路径："+json.path)
+							break
+						case "eof":
+							this.loading = false
+							break
+						case "error":
+							switch (json.reason) {
+								case "noconnection":
+									let item = this.result[id]
+									this.$notify.error("节点 "+item.group+" - "+item.remark+" 无法连接。")
+									break
+								case "nonodes":
+									this.$alert("找不到任何节点。请检查订阅链接。","错误")
+									break
+								case "invalidsub":
+									this.$alert("订阅获取异常。请检查订阅链接。","错误")
+									break
+								case "unhandled":
+									this.$alert("程序异常退出！","错误")
+									break
+							}
+							console.log("error:" + json.reason)
+							break
+					}
+					console.log(this.result)
 				}
-			} else {
-				alert('Cannot send: Not connected');
 			}
-		}
-		
-		function starttest(link,group) {
-			resultjson=[];
-			connect("ws://127.0.0.1:65430");
-			if(ws){
-				ws.addEventListener('open',function(ev){
-					send(link+"^"+group);
-				});
-				ws.addEventListener('message',MessageEvent);
-			}
-		}
-		
-		function MessageEvent(ev) {
-			var json=JSON.parse(ev.data);
-			switch(json.info){
-				case "gotserver":
-					resultjson[parseInt(json.id)] = {"group":json.group,"remark":json.remarks,"loss":"","ping":"","speed":"0.00KB"};
-					//Vue.set(resultjson,parseInt(json.id),{"group":json.group,"remark":json.remarks,"loss":"","ping":"","speed":"0.00KB"});
-					break;
-				case "gotping":
-					resultjson[parseInt(json.id)].loss=json.loss;
-					resultjson[parseInt(json.id)].ping=json.ping;
-					break;
-				case "gotspeed":
-					resultjson[parseInt(json.id)].speed=json.speed;
-					break;
-				case "eof":
-					app.loading=false;
-					break;
-				case "error":
-					console.log("error:"+json.reason);
-					break;
-			}
-			app.result=resultjson;
-		}
+		})
 	</script>
 </body>
 
