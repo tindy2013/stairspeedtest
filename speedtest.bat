@@ -1,7 +1,5 @@
 @echo off
 setlocal enabledelayedexpansion
-if "%1" == "/rpc" goto mainalt
-title Stair Speedtest
 
 :init
 call :killv2core
@@ -12,8 +10,10 @@ set group=
 set fasturl=
 mkdir results>nul 2>nul
 mkdir temp>nul 2>nul
+if "%1" == "/rpc" goto mainalt
 
 :main
+title Stair Speedtest
 echo Welcome to Stair Speedtest!
 echo Which stair do you want to test today? (Supports single ss/ssr/v2ray link and their subscribe links) 
 set /p link=Link: 
