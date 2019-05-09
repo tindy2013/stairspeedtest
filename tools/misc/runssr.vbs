@@ -1,0 +1,1 @@
+CreateObject("WScript.Shell").Run "tools\clients\shadowsocksr-libev\ssr-libev.exe -c config.json",0

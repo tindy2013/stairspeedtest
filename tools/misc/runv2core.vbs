@@ -1,0 +1,1 @@
+CreateObject("WScript.Shell").Run "tools\clients\v2ray-core\v2-core.exe",0

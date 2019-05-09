@@ -39,13 +39,15 @@ function speedCompare(iCol){
 
 function standardCompare(iCol) {
 	return   function  compareTRs(oTR1, oTR2) {
-		vValue1 = oTR1.cells[iCol].firstChild.nodeValue.toString();
-		vValue2 = oTR2.cells[iCol].firstChild.nodeValue.toString();
-		if  (vValue1 < vValue2) {
+		vValue1 = oTR1.cells[iCol].firstChild.nodeValue;
+		vValue2 = oTR2.cells[iCol].firstChild.nodeValue;
+		if(!isNaN(parseFloat(vValue1))) {vValue1=parseFloat(vValue1);}
+		if(!isNaN(parseFloat(vValue2))) {vValue2=parseFloat(vValue2);}
+		if(vValue1 < vValue2) {
 			return  -1;
-		}  else   if  (vValue1 > vValue2) {
+		} else if (vValue1 > vValue2) {
 			return  1;
-		}  else  {
+		} else {
 			return  0;
 		}
 	};
@@ -115,10 +117,13 @@ function addRow(pos,str,id) {
 
 function loadevent() {
 	var gentime=saveAndRemoveRow("gentime");
+	var traffic=saveAndRemoveRow("traffic");
 	saveAndRemoveRow("first");
 	orderByName("table",table.rows[0].cells.length-1,speedCompare);
 	drawcolor();
 	addRow(0,"<td onclick='clickevent();'>Group</td><td onclick='clickevent();'>Remarks</td><td onclick='clickevent();'>Loss</td><td onclick='clickevent();'>Ping</td><td onclick='loadevent();'>AvgSpeed</td>","first");
+	addRow(-1,traffic,"traffic");
+	document.getElementById("traffic").cells[0].setAttribute("colspan",table.rows[0].cells.length);
 	addRow(-1,gentime,"gentime");
 	document.getElementById("gentime").cells[0].setAttribute("colspan",table.rows[0].cells.length);
 }
@@ -126,8 +131,10 @@ function loadevent() {
 
 function clickevent() {
 	var gentime=saveAndRemoveRow("gentime");
+	var traffic=saveAndRemoveRow("traffic");
 	var firstrow=saveAndRemoveRow("first");
 	orderByName("table",event.srcElement.cellIndex,standardCompare);
 	addRow(0,firstrow,"first");
+	addRow(-1,traffic,"traffic");
 	addRow(-1,gentime,"gentime");
 }

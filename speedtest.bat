@@ -1,19 +1,22 @@
 @echo off
 setlocal enabledelayedexpansion
-if "%1" == "/rpc" goto mainalt
-title Stair Speedtest
 
 :init
 call :killv2core
 call :killssr
 call :killss
+call :killssrwin
+call :killsswin
 call :readpref
 set group=
 set fasturl=
+set traffic=0
 mkdir results>nul 2>nul
 mkdir temp>nul 2>nul
+if "%1" == "/rpc" goto mainalt
 
 :main
+title Stair Speedtest
 echo Welcome to Stair Speedtest!
 echo Which stair do you want to test today? (Supports single ss/ssr/v2ray link and their subscribe links) 
 set /p link=Link: 
@@ -28,7 +31,7 @@ goto :eof
 
 :mainalt
 set /p input=
-for /f "delims=^ tokens=1,2" %%i in ('echo "%input%"^|tools\webstring local') do (set link=%%i&&set group=%%j)
+for /f "delims=^ tokens=1,2" %%i in ('echo "%input%"^|tools\misc\webstring local') do (set link=%%i&&set group=%%j)
 call :chklink "!link!"
 if "%linktype%" == "vmess" (echo {"info":"foundvmess"}&&goto singletestalt)
 if "%linktype%" == "ss" (echo {"info":"foundss"}&&goto singletestalt)
@@ -42,19 +45,21 @@ goto :eof
 call :readconf "!link!"
 echo Server Group: !groupstr! Name: !ps!
 echo Now performing tcping...
+call :buildjson
+call :runclient
 call :chkping %add% %port%
 if "%pkloss%" == "100.00%%" (
 echo Cannot connect to server. Skipping speedtest...
 set speed=0.00KB
 ) else (
 echo Now performing speedtest...
-call :buildjson
-call :runclient
 call :perform
-call :killclient
 )
+call :killclient
+call :calctraffic
 echo Statistics:
 echo 	DL.Speed: %speed% Pk.Loss: %pkloss% Avg.Ping: %avgping%
+echo    Traffic used: %trafficstr%
 echo.
 echo Speedtest done. Press anykey to exit.
 pause>nul
@@ -62,8 +67,10 @@ goto :eof
 
 :singletestalt
 call :readconf "!link!" "true"
-echo {"info":"gotserver","id":0,"group":"!groupstr!","remarks":"!ps!"}|tools\webstring
+echo {"info":"gotserver","id":0,"group":"!groupstr!","remarks":"!ps!"}|tools\misc\webstring
 echo {"info":"startping","id":0}
+call :buildjson
+call :runclient
 call :chkping %add% %port%
 if "%pkloss%" == "100.00%%" (
 echo {"info":"error","reason":"noconnection","id":0}
@@ -71,12 +78,11 @@ set speed=0.00KB
 ) else (
 echo {"info":"gotping","id":0,"ping":"%avgping%","loss":"%pkloss%"}
 echo {"info":"startspeed","id":0}
-call :buildjson
-call :runclient
 call :perform
-call :killclient
 )
+call :killclient
 echo {"info":"gotspeed","id":0,"speed":"%speed%"}
+echo ("info":"traffic","size":"%traffic%"}
 echo {"info":"eof"}
 goto :eof
 
@@ -88,14 +94,14 @@ echo If you have imported an ss/ssr link which contains a Group Name, press Ente
 set /p group=Group Name: 
 echo.
 set id=-1
-rem for /f "tokens=*" %%i in ('tools\curl -L --silent "!link!"') do set subdata=%%i
+rem for /f "tokens=*" %%i in ('tools\network\curl -L --silent "!link!"') do set subdata=%%i
 rem if "%subdata%" == "" (
 rem echo Nothing returned from subscribe link. Please check your subscribe link.
 rem call :end
 rem goto :eof
 rem )
-rem for /f "delims=" %%i in ('echo %subdata%^|tools\speedtestutil sub') do (
-for /f "delims=" %%i in ('tools\curl -L --silent "!link!"^|tools\speedtestutil sub') do (
+rem for /f "delims=" %%i in ('echo %subdata%^|tools\misc\speedtestutil sub') do (
+for /f "delims=" %%i in ('tools\network\curl -L --silent "!link!"^|tools\misc\speedtestutil sub %preferred_ss_client%_%preferred_ssr_client%') do (
 for /f "delims=, tokens=1-5,*" %%a in ("%%i") do (set linktype=%%a&&set groupstr=%%b&&set ps=%%c&&set add=%%d&&set port=%%e&&set proxystr=%%f)
 if not "!linktype!" == "" (
 set /a id=!id!+1
@@ -118,15 +124,15 @@ goto :eof
 call :makelogname
 set id=-1
 echo {"info":"fetchingsub"}
-rem for /f %%i in ('tools\wget -qO- "!link!"') do set subdata=%%i
+rem for /f %%i in ('tools\network\wget -qO- "!link!"') do set subdata=%%i
 rem if "%subdata%" == "" (
 rem echo {"info":"error","reason":"invalidsub"}
 rem echo {"info":"eof"}
 rem goto :eof
 rem )
 rem echo {"info":"gotsub"}
-rem for /f "delims=" %%i in ('echo %subdata%^|tools\speedtestutil sub') do (
-for /f "delims=" %%i in ('tools\wget -qO- "!link!"^|tools\speedtestutil sub') do (
+rem for /f "delims=" %%i in ('echo %subdata%^|tools\misc\speedtestutil sub') do (
+for /f "delims=" %%i in ('tools\network\wget -qO- "!link!"^|tools\misc\speedtestutil sub %preferred_ss_client%_%preferred_ssr_client%') do (
 for /f "delims=, tokens=1-5,*" %%a in ("%%i") do (set linktype=%%a&&set groupstr=%%b&&set ps=%%c&&set add=%%d&&set port=%%e&&set proxystr=%%f)
 if not "!linktype!" == "" (
 set /a id=!id!+1
@@ -170,7 +176,16 @@ echo %groupstr%,%ps%,%pkloss%,%avgping%,%speed%>>"%logfile%"
 goto :eof
 
 :logeof
+call :calctraffic
+echo Traffic used: %trafficstr%>>"%logfile%"
 echo Generated at %curdate:/=-% %time% by Stair Speedtest>>"%logfile%"
+goto :eof
+
+:calctraffic
+set /a trafficdec=!traffic!*100/1024
+set trafficdec=!trafficdec:~-2!
+set /a traffic=!traffic!/1024
+set trafficstr=!traffic!.!trafficdec!MB
 goto :eof
 
 :chklink
@@ -192,17 +207,17 @@ echo.
 if not "%group%" == "" set groupstr=%group%
 echo Current Server Group: %groupstr% Name: %ps%
 echo Now performing tcping...
+call :buildjson
+call :runclient
 call :chkping %add% %port%
 if "%pkloss%" == "100.00%%" (
 echo Cannot connect to server. Skipping speedtest...
 set speed=0.00KB
 ) else (
 echo Now performing speedtest...
-call :buildjson
-call :runclient
 call :perform
-call :killclient
 )
+call :killclient
 echo Result: DL.Speed: %speed% Pk.Loss: %pkloss% Avg.Ping: %avgping%
 call :writelog
 goto :eof
@@ -211,8 +226,10 @@ goto :eof
 if %excluded% equ 1 (set /a id=%id%-1&&goto :eof)
 if %included% equ 0 (set /a id=%id%-1&&goto :eof)
 if not "%group%" == "" set groupstr=%group%
-echo {"info":"gotserver","id":%id%,"group":"!groupstr!","remarks":"!ps!"}|tools\webstring
+echo {"info":"gotserver","id":%id%,"group":"!groupstr!","remarks":"!ps!"}|tools\misc\webstring
 echo {"info":"startping","id":%id%}
+call :buildjson
+call :runclient
 call :chkping %add% %port%
 echo {"info":"gotping","id":%id%,"ping":"%avgping%","loss":"%pkloss%"}
 if "%pkloss%" == "100.00%%" (
@@ -220,11 +237,9 @@ echo {"info":"error","reason":"noconnection","id":%id%}
 set speed=0.00KB
 ) else (
 echo {"info":"startspeed","id":%id%}
-call :buildjson
-call :runclient
 call :perform
-call :killclient
 )
+call :killclient
 echo {"info":"gotspeed","id":%id%,"speed":"%speed%"}
 call :writelog
 goto :eof
@@ -234,7 +249,7 @@ echo %proxystr% > config.json
 goto :eof
 
 :readconf
-for /f "delims=, tokens=1-5,*" %%a in ('echo "%~1" ^| tools\speedtestutil') do (set linktype=%%a&&set groupstr=%%b&&set ps=%%c&&set add=%%d&&set port=%%e&&set proxystr=%%f)
+for /f "delims=, tokens=1-5,*" %%a in ('echo "%~1" ^| tools\misc\speedtestutil link %preferred_ss_client%_%preferred_ssr_client%') do (set linktype=%%a&&set groupstr=%%b&&set ps=%%c&&set add=%%d&&set port=%%e&&set proxystr=%%f)
 call :chkexcluderemark
 call :chkincluderemark
 goto :eof
@@ -265,32 +280,58 @@ goto :eof
 
 :runclient
 if "%linktype%" == "vmess" call :runv2core
-if "%linktype%" == "ss" call :runss
-if "%linktype%" == "ssr" call :runssr
+if "%linktype%" == "ss" (
+if not defined preferred_ss_client call :runsswin
+if "%preferred_ss_client%" == "ss-csharp" call :runsswin
+if "%preferred_ss_client%" == "ss-libev" call :runss
+)
+if "%linktype%" == "ssr" (
+if not defined preferred_ssr_client call :runssrwin
+if "%preferred_ssr_client%" == "ssr-csharp" call :runssrwin
+if "%preferred_ssr_client%" == "ssr-libev" call :runssr
+)
 goto :eof
 
 :runv2core
-wscript tools\runv2core.vbs //B
+wscript tools\misc\runv2core.vbs //B
 call :sleep 3
 goto :eof
 
 :runss
 rem fix obfs-local
-cd tools
-wscript runss.vbs //B
-cd ..
+cd tools\clients\shadowsocks-libev
+wscript ..\misc\runss.vbs //B
+cd ..\..\..
 call :sleep 3
 goto :eof
 
+:runsswin
+copy /y config.json tools\clients\shadowsocks-win\gui-config.json>nul 2>nul
+start tools\clients\shadowsocks-win\shadowsocks-win.exe
+goto :eof
+
 :runssr
-wscript tools\runssr.vbs //B
+wscript tools\misc\runssr.vbs //B
 call :sleep 3
+goto :eof
+
+:runssrwin
+copy /y config.json tools\clients\shadowsocksr-win\gui-config.json>nul 2>nul
+start tools\clients\shadowsocksr-win\shadowsocksr-win.exe
 goto :eof
 
 :killclient
 if "%linktype%" == "vmess" call :killv2core
-if "%linktype%" == "ss" call :killss
-if "%linktype%" == "ssr" call :killssr
+if "%linktype%" == "ss" (
+if not defined preferred_ss_client call :killsswin
+if "%preferred_ss_client%" == "ss-csharp" call :killsswin
+if "%preferred_ss_client%" == "ss-libev" call :killss
+)
+if "%linktype%" == "ssr" (
+if not defined preferred_ssr_client call :killssrwin
+if "%preferred_ssr_client%" == "ssr-csharp" call :killssrwin
+if "%preferred_ssr_client%" == "ssr-libev" call :killssr
+)
 goto :eof
 
 :killv2core
@@ -300,10 +341,21 @@ goto :eof
 :killss
 tskill ss-libev>nul 2>nul
 tskill obfs-local>nul 2>nul
+tskill simple-obfs>nul 2>nul
+goto :eof
+
+:killsswin
+tskill shadowsocks-win>nul 2>nul
+tskill obfs-local>nul 2>nul
+tskill simple-obfs>nul 2>nul
 goto :eof
 
 :killssr
 tskill ssr-libev>nul 2>nul
+goto :eof
+
+:killssrwin
+tskill shadowsocksr-win>nul 2>nul
 goto :eof
 
 :sleep
@@ -311,9 +363,16 @@ ping -n %1 127.1>nul 2>nul
 goto :eof
 
 :chkping
+if not defined preferred_ping_method set preferred_ping_method=tcping
+if "%preferred_ping_method%" == "googleping" (call :googleping&&goto :eof)
+if "%preferred_ping_method%" == "bingping" (call :bingping&&goto :eof)
+if "%preferred_ping_method%" == "gstaticping" (call :gstaticping&&goto :eof) else (call :tcping %1 %2&&goto :eof)
+goto :eof
+
+:tcping
 set avgping=0.00
 set pkloss=100.00%%
-for /f "tokens=*" %%i in ('tools\tcping -n 6 -i 1 %1 %2') do (
+for /f "tokens=*" %%i in ('tools\network\tcping -n 6 -i 1 %1 %2') do (
 call :instr "Average" "%%~i"
 if !retval! equ 0 set avgping=%%i
 call :instr "Was unable to connect" "%%~i"
@@ -332,24 +391,71 @@ set avgping=!avgping:~1,-1!
 )
 goto :eof
 
+:googleping
+rem weird bug, might be caused by dns
+call :curlping "https://google.com" 301 0
+goto :eof
+
+:bingping
+call :curlping "https://www.bing.com" 200 0
+goto :eof
+
+:gstaticping
+call :curlping "https://www.gstatic.com/generate_204" 204 0
+goto :eof
+
+:curlping
+if "%~2" == "" (set successcode=200) else (set successcode=%~2)
+if "%~3" == "" (set errorcode=0) else (set errorcode=%~3)
+set avgping=0
+set pkloss=0
+set losses=0
+set pingval=0
+for /L %%a in (0,1,5) do (
+for /f "delims=, tokens=1-2" %%b in ('tools\network\curl -m 2 -o test.test -L -x socks5://127.0.0.1:65432 -s -skw "%%{time_connect},%%{http_code}" "%~1"') do (set pingval=%%b&&set retval=%%c&&call :procping)
+if !retval! equ !successcode! set /a avgping=!avgping!+!pingval!/10
+if !retval! equ !errorcode! set /a losses=!losses!+1
+)
+set /a avgping=!avgping!/6
+set /a pkloss=!losses!*10000/6
+if !pkloss! equ 10000 (
+set avgping=0.00
+set pkloss=100.00%%
+goto :eof
+) else (
+set avgping=!avgping:~0,-2!.!avgping:~-2!
+)
+if !pkloss! equ 0 (set pkloss=0.00%%) else (set pkloss=!pkloss:~0,-2!.!pkloss:~-2!%%)
+goto :eof
+
+:procping
+set pingval=!pingval:.=!
+:procpingloop
+set strtmp=!pingval:~0,1!
+if "!strtmp!" == "0" (set pingval=!pingval:~1!&&goto procpingloop)
+goto :eof
+
 :perform
-set speed=00
-rem tools\curl -m 3 -x socks5://127.0.0.1:65432 http://cachefly.cachefly.net/100mb.test -L -s>nul 2>nul
-for /f %%i in ('tools\curl -m 10 -o test.test -x socks5://127.0.0.1:65432 https://download.microsoft.com/download/2/2/A/22AA9422-C45D-46FA-808F-179A1BEBB2A7/office2007sp3-kb2526086-fullfile-en-us.exe -L -s -skw "%%{speed_download}"') do set speed=%%i
-rem http://updates-http.cdn-apple.com/2019SpringFCS/fullrestores/091-79183/ECD07652-499F-11E9-99DE-E74576CE070F/iPhone11,8_12.2_16E227_Restore.ipsw
+set speed=0
 rem http://cachefly.cachefly.net/100mb.test
-rem https://download.microsoft.com/download/2/2/A/22AA9422-C45D-46FA-808F-179A1BEBB2A7/office2007sp3-kb2526086-fullfile-en-us.exe
+rem https://dl.google.com/dl/android/aosp/bonito-pd2a.190115.029-factory-aac5b874.zip
+rem https://download.microsoft.com/download/2/0/E/20E90413-712F-438C-988E-FDAA79A8AC3D/dotnetfx35.exe
+set testfile=https://download.microsoft.com/download/2/0/E/20E90413-712F-438C-988E-FDAA79A8AC3D/dotnetfx35.exe
+rem handshake first (but may cause problem)
+rem tools\network\curl -m 1 -o test.test -x socks5://127.0.0.1:65432 %testfile% -L -s>nul 2>nul
+rem then do the real testing
+for /f "delims=, tokens=1-2" %%i in ('tools\network\curl -m 10 -o test.test -x socks5://127.0.0.1:65432 %testfile% -L -s -skw "%%{speed_download},%%{size_download}"') do (set speed=%%i&&set /a traffic=!traffic!+%%j/1024)
 call :calcspeed
 goto :eof
 
 :performfast
 set speed=00
-tools\curl -o fast.htm --silent -x socks5://127.0.0.1:65432 https://fast.com
-for /f "tokens=*" %%i in ('echo placeholder ^| tools\speedtestutil fastpage') do set script=%%i
-tools\curl -o fast.js --silent -x socks5://127.0.0.1:65432 https://fast.com%script%
-for /f %%i in ('echo placeholder ^| tools\speedtestutil fasttoken') do set token=%%i
-for /f %%i in ('tools\curl --silent -x socks5://127.0.0.1:65432 "https://api.fast.com/netflix/speedtest?https=true&token=%token%&urlCount=1" ^| tools\speedtestutil fastjson') do set fasturl=%%i
-for /f %%i in ('tools\curl -m 30 -o test.test -x socks5://127.0.0.1:65432 "%fasturl%" -L -s -skw "%%{speed_download}"') do set speed=%%i
+tools\network\curl -o fast.htm --silent -x socks5://127.0.0.1:65432 https://fast.com
+for /f "tokens=*" %%i in ('echo placeholder ^| tools\misc\speedtestutil fastpage') do set script=%%i
+tools\network\curl -o fast.js --silent -x socks5://127.0.0.1:65432 https://fast.com%script%
+for /f %%i in ('echo placeholder ^| tools\misc\speedtestutil fasttoken') do set token=%%i
+for /f %%i in ('tools\network\curl --silent -x socks5://127.0.0.1:65432 "https://api.fast.com/netflix/speedtest?https=true&token=%token%&urlCount=1" ^| tools\misc\speedtestutil fastjson') do set fasturl=%%i
+for /f %%i in ('tools\network\curl -m 30 -o test.test -x socks5://127.0.0.1:65432 "%fasturl%" -L -s -skw "%%{speed_download}"') do set speed=%%i
 call :calcspeed
 goto :eof
 
@@ -375,9 +481,9 @@ set speed=!speed!B
 goto :eof
 
 :exportresult
-echo %logfile% | tools\speedtestutil export tools\util.js>"%logpath%.htm"
+echo %logfile% | tools\misc\speedtestutil export tools\misc\util.js>"%logpath%.htm"
 cd results
-..\tools\phantomjs ..\tools\simplerender.js "%logname%.htm" "%logname%.png"
+..\tools\misc\phantomjs ..\tools\misc\simplerender.js "%logname%.htm" "%logname%.png"
 cd ..
 goto :eof
 

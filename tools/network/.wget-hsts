@@ -1,0 +1,4 @@
+# HSTS 1.0 Known Hosts database for GNU Wget.
+# Edit at your own risk.
+# <hostname>	<port>	<incl. subdomains>	<created>	<max-age>
+home.jiyou.fun	0	0	1557403460	2592000

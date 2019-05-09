@@ -15,7 +15,9 @@ if (system.args.length < 3 || system.args.length > 3) {
 		phantom.exit(1);
 		} else {
 			window.setTimeout(function () {
-				//page.paperSize = {width:page.viewportSize.width,height:page.viewportSize.height,margin:'0px'}; //not working
+				table=page.evaluate(function () {return document.getElementById("table");});
+				//page.paperSize = {width:table.clientWidth,height:table.clientHeight};
+				page.clipRect = {width:table.clientWidth,height:table.clientHeight,top:table.clientTop,left:table.clientLeft};
 				page.render(output);
 				phantom.exit();
 			}, 200);

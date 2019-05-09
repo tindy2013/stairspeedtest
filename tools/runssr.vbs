@@ -1,1 +1,0 @@
-CreateObject("WScript.Shell").Run "tools\ssr-libev.exe -c config.json",0
