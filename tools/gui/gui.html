@@ -61,9 +61,9 @@
 							</el-table-column>
 							<el-table-column label="Loss" align="center" prop="loss" width="100" sortable>
 							</el-table-column>
-							<el-table-column label="Ping" align="center" prop="ping" width="100" sortable>
+							<el-table-column label="Ping" align="center" prop="ping" width="100" sortable :sort-method="floatSort">
 							</el-table-column>
-							<el-table-column label="AvgSpeed" align="center" prop="speed" width="150" sortable>
+							<el-table-column label="AvgSpeed" align="center" prop="speed" width="150" sortable :sort-method="speedSort">
 							</el-table-column>
 						</el-table>
 					</el-container>
@@ -351,6 +351,23 @@
 							break
 					}
 					console.log(this.result)
+				},
+				floatSort: function (obj1, obj2) {
+					return parseFloat(obj1.ping) - parseFloat(obj2.ping)
+				},
+				speedSort: function (obj1, obj2) {
+					let unit1 = obj1.speed.substr(-2, 2)
+					let unit2 = obj2.speed.substr(-2, 2)
+					let value1 = obj1.speed.slice(0, -2)
+					let value2 = obj2.speed.slice(0, -2)
+
+					if (unit1 === unit2) {
+						return parseFloat(value1) - parseFloat(value2)
+					} else if (unit1 === 'MB') {
+						return parseFloat(value1) * 1024 - parseFloat(value2)
+					} else {
+						return parseFloat(value1) - parseFloat(value2) * 1024
+					}
 				}
 			}
 		})
