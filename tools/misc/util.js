@@ -90,7 +90,7 @@ function getSpeedColor(speed) {
 }
 
 function drawcolor() {
-	useNewPalette();
+	//useNewPalette();
 	var x = document.getElementsByClassName("speed");
 	for(var i=0;i<x.length;i++){
 		x[i].bgColor=getSpeedColor(getSpeed(x[i].innerText));

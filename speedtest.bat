@@ -300,7 +300,7 @@ goto :eof
 :runss
 rem fix obfs-local
 cd tools\clients\shadowsocks-libev
-wscript ..\misc\runss.vbs //B
+wscript ..\..\misc\runss.vbs //B
 cd ..\..\..
 call :sleep 3
 goto :eof
