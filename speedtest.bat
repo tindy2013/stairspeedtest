@@ -59,7 +59,7 @@ call :killclient
 call :calctraffic
 echo Statistics:
 echo 	DL.Speed: %speed% Pk.Loss: %pkloss% Avg.Ping: %avgping%
-echo    Traffic used: %trafficstr%
+echo 	Traffic used: %trafficstr%
 echo.
 echo Speedtest done. Press anykey to exit.
 pause>nul
@@ -94,6 +94,7 @@ echo If you have imported an ss/ssr link which contains a Group Name, press Ente
 set /p group=Group Name: 
 echo.
 set id=-1
+rem saving all subscribe data to a variable might cause problem, removed for now
 rem for /f "tokens=*" %%i in ('tools\network\curl -L --silent "!link!"') do set subdata=%%i
 rem if "%subdata%" == "" (
 rem echo Nothing returned from subscribe link. Please check your subscribe link.
@@ -110,6 +111,9 @@ call :chkincluderemark
 call :batchtest
 )
 )
+call :calctraffic
+echo All nodes tested. Traffic used: %trafficstr%
+echo Now exporting png.
 if %id% gtr -1 (
 call :logeof
 call :exportresult
@@ -182,10 +186,27 @@ echo Generated at %curdate:/=-% %time% by Stair Speedtest>>"%logfile%"
 goto :eof
 
 :calctraffic
-set /a trafficdec=!traffic!*100/1024
-set trafficdec=!trafficdec:~-2!
-set /a traffic=!traffic!/1024
-set trafficstr=!traffic!.!trafficdec!MB
+if "%traffic%" == "0" (set traffic=0.00KB&&goto :eof)
+if %traffic% geq 1048576 (
+rem no need to worry about accuracy, this is enough for 2 decimals
+set /a traffic=!traffic!/1024*100/1024
+set trafficdec=!traffic:~-2!
+set /a traffic=!traffic!/100
+rem fix inaccurate number caused by integer-only calculation
+set /a trafficdec=!trafficdec!+1
+set trafficstr=!traffic!.!trafficdec:~0,2!GB
+) else (
+if %traffic% geq 1024 (
+set /a traffic=!traffic!*100/1024
+set trafficdec=!traffic:~-2!
+set /a traffic=!traffic!/100
+rem fix inaccurate number caused by integer-only calculation
+set /a trafficdec=!trafficdec!+1
+set trafficstr=!traffic!.!trafficdec:~0,2!MB
+) else (
+set trafficstr=!traffic!.00KB
+)
+)
 goto :eof
 
 :chklink
@@ -281,12 +302,12 @@ goto :eof
 :runclient
 if "%linktype%" == "vmess" call :runv2core
 if "%linktype%" == "ss" (
-if not defined preferred_ss_client call :runsswin
+if not defined preferred_ss_client set preferred_ss_client=ss-csharp
 if "%preferred_ss_client%" == "ss-csharp" call :runsswin
 if "%preferred_ss_client%" == "ss-libev" call :runss
 )
 if "%linktype%" == "ssr" (
-if not defined preferred_ssr_client call :runssrwin
+if not defined preferred_ssr_client set preferred_ssr_client=ssr-csharp
 if "%preferred_ssr_client%" == "ssr-csharp" call :runssrwin
 if "%preferred_ssr_client%" == "ssr-libev" call :runssr
 )
@@ -323,12 +344,12 @@ goto :eof
 :killclient
 if "%linktype%" == "vmess" call :killv2core
 if "%linktype%" == "ss" (
-if not defined preferred_ss_client call :killsswin
+if not defined preferred_ss_client set preferred_ss_client=ss-csharp
 if "%preferred_ss_client%" == "ss-csharp" call :killsswin
 if "%preferred_ss_client%" == "ss-libev" call :killss
 )
 if "%linktype%" == "ssr" (
-if not defined preferred_ssr_client call :killssrwin
+if not defined preferred_ssr_client set preferred_ssr_client=ssr-csharp
 if "%preferred_ssr_client%" == "ssr-csharp" call :killssrwin
 if "%preferred_ssr_client%" == "ssr-libev" call :killssr
 )
@@ -392,7 +413,7 @@ set avgping=!avgping:~1,-1!
 goto :eof
 
 :googleping
-rem weird bug, might be caused by dns
+rem weird bug if using www.google.com, might be caused by dns
 call :curlping "https://google.com" 301 0
 goto :eof
 
@@ -436,6 +457,12 @@ if "!strtmp!" == "0" (set pingval=!pingval:~1!&&goto procpingloop)
 goto :eof
 
 :perform
+if not defined preferred_test_method set preferred_test_method=file
+if "%preferred_test_method%" == "file" (call :performfile&&goto :eof)
+if "%preferred_test_method%" == "fast.com" (call :performfast&&goto :eof) else (call :performfile&&goto :eof)
+goto :eof
+
+:performfile
 set speed=0
 rem http://cachefly.cachefly.net/100mb.test
 rem https://dl.google.com/dl/android/aosp/bonito-pd2a.190115.029-factory-aac5b874.zip
@@ -449,13 +476,18 @@ call :calcspeed
 goto :eof
 
 :performfast
-set speed=00
+set speed=0
 tools\network\curl -o fast.htm --silent -x socks5://127.0.0.1:65432 https://fast.com
 for /f "tokens=*" %%i in ('echo placeholder ^| tools\misc\speedtestutil fastpage') do set script=%%i
 tools\network\curl -o fast.js --silent -x socks5://127.0.0.1:65432 https://fast.com%script%
 for /f %%i in ('echo placeholder ^| tools\misc\speedtestutil fasttoken') do set token=%%i
 for /f %%i in ('tools\network\curl --silent -x socks5://127.0.0.1:65432 "https://api.fast.com/netflix/speedtest?https=true&token=%token%&urlCount=1" ^| tools\misc\speedtestutil fastjson') do set fasturl=%%i
-for /f %%i in ('tools\network\curl -m 30 -o test.test -x socks5://127.0.0.1:65432 "%fasturl%" -L -s -skw "%%{speed_download}"') do set speed=%%i
+for /d %%a in (0,1,2) do (
+for /f "delims=, tokens=1-2" %%i in ('tools\network\curl -m 30 -o test.test -x socks5://127.0.0.1:65432 "%fasturl%" -L -s -skw "%%{speed_download},%%{size_download}"') do (set oncespeed=%%i&&set /a traffic=!traffic!+%%j/1024)
+set oncespeed=!oncespeed:.000=!
+set /a speed=!speed!+!oncespeed!
+)
+set /a speed=!speed!/3
 call :calcspeed
 goto :eof
 
@@ -463,8 +495,7 @@ goto :eof
 set speed=%speed:.000=%
 if "%speed%" == "0" (set speed=0.00KB&&goto :eof)
 if %speed% geq 1048576 (
-set /a speed=!speed!/1024*100
-set /a speed=!speed!/1024
+set /a speed=!speed!/1024*100/1024
 set speeddec=!speed:~-2!
 set /a speed=!speed!/100
 set speed=!speed!.!speeddec:~0,2!MB
@@ -488,7 +519,7 @@ cd ..
 goto :eof
 
 :readpref
-for /f "eol=[ delims== tokens=1,2" %%i in (pref.ini) do (
+for /f "eol=[ delims== tokens=1,*" %%i in (pref.ini) do (
 set itemname=%%i
 if not "!itemname:~0,1!" == ";" set !itemname!=%%j
 )

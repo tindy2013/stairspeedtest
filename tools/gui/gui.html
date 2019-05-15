@@ -54,7 +54,7 @@
 				<el-card>
 					<div slot="header">结果</div>
 					<el-container>
-						<el-table :data="result" :cell-style="colorCell" size="medium" ref="result" @sort-method="sort">
+						<el-table :data="result" :cell-style="colorCell" size="medium" ref="result">
 							<el-table-column label="Group" align="center" prop="group" width="300" sortable>
 							</el-table-column>
 							<el-table-column label="Remark" align="center" prop="remark" width="300" sortable>
@@ -75,18 +75,6 @@
 
 
 	<script>
-		const url = ''
-		const RGB = {
-			"0": [255, 255, 255],
-			"1": [0, 255, 0],
-			"2": [255, 255, 0],
-			"5": [255, 165, 0],
-			"10": [255, 255, 0],
-			"15": [255, 69, 0],
-			"20": [255, 0, 0],
-			"30": [255, 0, 0],
-		}
-
 		let colorgroup = [
 			[255, 255, 255],
 			[128, 255, 0],
@@ -134,30 +122,6 @@
 					}
 
 				},
-				sort(a,b) {
-					console.log(a)
-					console.log(b)
-				},
-				matchColor: function (speed) {
-					speed = parseFloat(this.getSpeed(speed)) / 1024
-					let rgb = [0, 0, 0]
-					if (speed <= 0) {
-						rgb = RGB['0']
-					} else if (speed > 30) {
-						rgb = RGB['30']
-					} else {
-						let match = ''
-						Object.keys(RGB).forEach(key => {
-							console.log(speed, key)
-							if (speed >= parseInt(key)) {
-								console.log(speed, parseInt(key))
-								match = key
-							}
-						})
-						rgb = RGB[match]
-					}
-					return 'rgb(' + rgb[0] + ',' + rgb[1] + ',' + rgb[2] + ')'
-				},
 				useNewPalette() {
 					colorgroup = [
 						[255, 255, 255],
@@ -190,31 +154,10 @@
 					for (let i = 0; i < bounds.length - 1; i++) {
 						if (speed >= bounds[i] && speed <= bounds[i + 1]) {
 							let color = this.getColor(colorgroup[i], colorgroup[i + 1], ((speed - bounds[i]) / (bounds[i + 1] - bounds[i])))
-							//return this.rgb2hex(color)
 							return 'rgb(' + color[0] + ',' + color[1] + ',' + color[2] + ')'
 						}
 					}
-					//return rgb2hex(colorgroup[colorgroup.length - 1])
 					return 'rgb(' + colorgroup[colorgroup.length - 1][0] + ',' + colorgroup[colorgroup.length - 1][1] + ',' + colorgroup[colorgroup.length - 1][2] + ')'
-				},
-				speedCompare(iCol) {
-					return function Compare(speed1, speed2) {
-						let vValue1 = parseFloat(getSpeed(speed1.cells[iCol].firstChild.nodeValue.toString()))
-						let vValue2 = parseFloat(getSpeed(speed2.cells[iCol].firstChild.nodeValue.toString()))
-						if (isNaN(vValue1)) {
-							return -1
-						} 
-						if (isNaN(vValue2)) {
-							return 1
-						} 
-						if (vValue1 > vValue2) {
-							return 1
-						} 
-						if (vValue1 < vValue2) {
-							return -1
-						} 
-						return 0
-					};
 				},
 				connect(url) {
 					try {
@@ -244,7 +187,7 @@
 				},
 				starttest(link, group) {
 					this.result = [];
-					this.connect("ws://127.0.0.1:65430")
+					this.connect("ws://"+window.location.host)
 					if (ws) {
 						ws.addEventListener('open', function (ev) {
 							this.send(link + "^" + group)
@@ -356,6 +299,7 @@
 					return parseFloat(obj1.ping) - parseFloat(obj2.ping)
 				},
 				speedSort: function (obj1, obj2) {
+				/*
 					let unit1 = obj1.speed.substr(-2, 2)
 					let unit2 = obj2.speed.substr(-2, 2)
 					let value1 = obj1.speed.slice(0, -2)
@@ -368,6 +312,8 @@
 					} else {
 						return parseFloat(value1) - parseFloat(value2) * 1024
 					}
+				*/
+					return getSpeed(obj1.speed) - getSpeed(obj2.speed)
 				}
 			}
 		})
