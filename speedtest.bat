@@ -11,6 +11,7 @@ call :readpref
 set group=
 set fasturl=
 set traffic=0
+set thread_count=4
 mkdir results>nul 2>nul
 mkdir temp>nul 2>nul
 if "%1" == "/rpc" goto mainalt
@@ -54,11 +55,16 @@ set speed=0.00KB
 ) else (
 echo Now performing speedtest...
 call :perform
+if "!speed!" == "0.00B" (
+echo Speedtest returned no speed. Retesting...
+call :perform
+if "!speed!" == "0.00B" echo Speedtest returned no speed 2 times. Skipping...
+)
 )
 call :killclient
 call :calctraffic
 echo Statistics:
-echo 	DL.Speed: %speed% Pk.Loss: %pkloss% Avg.Ping: %avgping%
+echo 	DL.Speed: %speed% Max.Speed: %maxspeed% Pk.Loss: %pkloss% Avg.Ping: %avgping%
 echo 	Traffic used: %trafficstr%
 echo.
 echo Speedtest done. Press anykey to exit.
@@ -73,15 +79,20 @@ call :buildjson
 call :runclient
 call :chkping %add% %port%
 if "%pkloss%" == "100.00%%" (
-echo {"info":"error","reason":"noconnection","id":0}
+echo {"info":"error","reason":"noconnection","id":"0"}
 set speed=0.00KB
 ) else (
-echo {"info":"gotping","id":0,"ping":"%avgping%","loss":"%pkloss%"}
-echo {"info":"startspeed","id":0}
+echo {"info":"gotping","id":"0","ping":"%avgping%","loss":"%pkloss%"}
+echo {"info":"startspeed","id":"0"}
 call :perform
+if "!speed!" == "0.00B" (
+echo {"info":"retest","id":"0"}
+call :perform
+if "!speed!" == "0.00B" echo {"info":"nospeed","id":"0"}
+)
 )
 call :killclient
-echo {"info":"gotspeed","id":0,"speed":"%speed%"}
+echo {"info":"gotspeed","id":0,"speed":"%speed%","maxspeed":"%maxspeed%"}
 echo ("info":"traffic","size":"%traffic%"}
 echo {"info":"eof"}
 goto :eof
@@ -102,7 +113,7 @@ rem call :end
 rem goto :eof
 rem )
 rem for /f "delims=" %%i in ('echo %subdata%^|tools\misc\speedtestutil sub') do (
-for /f "delims=" %%i in ('tools\network\curl -L --silent "!link!"^|tools\misc\speedtestutil sub %preferred_ss_client%_%preferred_ssr_client%') do (
+for /f "delims=" %%i in ('tools\network\wget -t 1 -T 5 -qO- "!link!"^|tools\misc\speedtestutil sub %preferred_ss_client%_%preferred_ssr_client%') do (
 for /f "delims=, tokens=1-5,*" %%a in ("%%i") do (set linktype=%%a&&set groupstr=%%b&&set ps=%%c&&set add=%%d&&set port=%%e&&set proxystr=%%f)
 if not "!linktype!" == "" (
 set /a id=!id!+1
@@ -136,7 +147,7 @@ rem goto :eof
 rem )
 rem echo {"info":"gotsub"}
 rem for /f "delims=" %%i in ('echo %subdata%^|tools\misc\speedtestutil sub') do (
-for /f "delims=" %%i in ('tools\network\wget -qO- "!link!"^|tools\misc\speedtestutil sub %preferred_ss_client%_%preferred_ssr_client%') do (
+for /f "delims=" %%i in ('tools\network\wget -t 1 -T 5 -qO- "!link!"^|tools\misc\speedtestutil sub %preferred_ss_client%_%preferred_ssr_client%') do (
 for /f "delims=, tokens=1-5,*" %%a in ("%%i") do (set linktype=%%a&&set groupstr=%%b&&set ps=%%c&&set add=%%d&&set port=%%e&&set proxystr=%%f)
 if not "!linktype!" == "" (
 set /a id=!id!+1
@@ -231,15 +242,20 @@ echo Now performing tcping...
 call :buildjson
 call :runclient
 call :chkping %add% %port%
-if "%pkloss%" == "100.00%%" (
+if "!pkloss!" == "100.00%%" (
 echo Cannot connect to server. Skipping speedtest...
 set speed=0.00KB
 ) else (
 echo Now performing speedtest...
 call :perform
+if "!speed!" == "0.00B" (
+echo Speedtest returned no speed. Retesting...
+call :perform
+if "!speed!" == "0.00B" echo Speedtest returned no speed 2 times. Skipping...
+)
 )
 call :killclient
-echo Result: DL.Speed: %speed% Pk.Loss: %pkloss% Avg.Ping: %avgping%
+echo Result: DL.Speed: %speed% Max.Speed: %maxspeed% Pk.Loss: %pkloss% Avg.Ping: %avgping%
 call :writelog
 goto :eof
 
@@ -259,9 +275,14 @@ set speed=0.00KB
 ) else (
 echo {"info":"startspeed","id":%id%}
 call :perform
+if "!speed!" == "0.00B" (
+echo {"info":"retest","id":"%id%"}
+call :perform
+if "!speed!" == "0.00B" echo {"info":"nospeed","id":"%id%"}
+)
 )
 call :killclient
-echo {"info":"gotspeed","id":%id%,"speed":"%speed%"}
+echo {"info":"gotspeed","id":%id%,"speed":"%speed%","maxspeed":"%maxspeed%"}
 call :writelog
 goto :eof
 
@@ -457,26 +478,27 @@ if "!strtmp!" == "0" (set pingval=!pingval:~1!&&goto procpingloop)
 goto :eof
 
 :perform
+set speed=0.00B
 if not defined preferred_test_method set preferred_test_method=file
 if "%preferred_test_method%" == "file" (call :performfile&&goto :eof)
-if "%preferred_test_method%" == "fast.com" (call :performfast&&goto :eof) else (call :performfile&&goto :eof)
+if "%preferred_test_method%" == "fast.com" (call :performfast&&goto :eof)
 goto :eof
 
 :performfile
-set speed=0
-rem http://cachefly.cachefly.net/100mb.test
+rem http://cachefly.cachefly.net/200mb.test
 rem https://dl.google.com/dl/android/aosp/bonito-pd2a.190115.029-factory-aac5b874.zip
 rem https://download.microsoft.com/download/2/0/E/20E90413-712F-438C-988E-FDAA79A8AC3D/dotnetfx35.exe
 set testfile=https://download.microsoft.com/download/2/0/E/20E90413-712F-438C-988E-FDAA79A8AC3D/dotnetfx35.exe
 rem handshake first (but may cause problem)
 rem tools\network\curl -m 1 -o test.test -x socks5://127.0.0.1:65432 %testfile% -L -s>nul 2>nul
 rem then do the real testing
-for /f "delims=, tokens=1-2" %%i in ('tools\network\curl -m 10 -o test.test -x socks5://127.0.0.1:65432 %testfile% -L -s -skw "%%{speed_download},%%{size_download}"') do (set speed=%%i&&set /a traffic=!traffic!+%%j/1024)
-call :calcspeed
+rem for /f "delims=, tokens=1-2" %%i in ('tools\network\curl -m 10 -o test.test -x socks5://127.0.0.1:65432 %testfile% -L -s -skw "%%{speed_download},%%{size_download}"') do (set speed=%%i&&set /a traffic=!traffic!+%%j/1024)
+for /f "delims=, tokens=1-3" %%i in ('tools\network\multithread-test -tc %thread_count% -nd -xa 127.0.0.1 -xp 65432 -tf %testfile%') do (set speed=%%i&&set maxspeed=%%j&&set /a traffic=!traffic!+%%k/1024)
+rem no need to calculate
+rem call :calcspeed
 goto :eof
 
 :performfast
-set speed=0
 tools\network\curl -o fast.htm --silent -x socks5://127.0.0.1:65432 https://fast.com
 for /f "tokens=*" %%i in ('echo placeholder ^| tools\misc\speedtestutil fastpage') do set script=%%i
 tools\network\curl -o fast.js --silent -x socks5://127.0.0.1:65432 https://fast.com%script%
@@ -493,7 +515,7 @@ goto :eof
 
 :calcspeed
 set speed=%speed:.000=%
-if "%speed%" == "0" (set speed=0.00KB&&goto :eof)
+if "%speed%" == "0" (set speed=0.00B&&goto :eof)
 if %speed% geq 1048576 (
 set /a speed=!speed!/1024*100/1024
 set speeddec=!speed:~-2!
