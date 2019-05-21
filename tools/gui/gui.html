@@ -65,6 +65,8 @@
 							</el-table-column>
 							<el-table-column label="AvgSpeed" align="center" prop="speed" width="150" sortable :sort-method="speedSort">
 							</el-table-column>
+							<el-table-column label="MaxSpeed" align="center" prop="maxspeed" width="150" sortable :sort-method="speedSort">
+							</el-table-column>
 						</el-table>
 					</el-container>
 				</el-card>
@@ -82,7 +84,7 @@
 			[255, 128, 192],
 			[255, 0, 0]
 		]
-		let bounds = [0, 64, 512, 4 * 1024, 16 * 1024]
+		let bounds = [0, 64 * 1024, 512 * 1024, 4 * 1024 * 1024, 16 * 1024 * 1024]
 		
 		let interval=0
 
@@ -112,7 +114,7 @@
 					columnIndex
 				}) {
 					let style = 'color: black; font-weight: 600;'
-					if (columnIndex === 4) {
+					if (columnIndex === 4||columnIndex == 5) {
 						let speed = row.speed
 						if (isNaN(parseFloat(speed))) return style
 						let color = this.getSpeedColor(this.getSpeed(speed))
@@ -133,13 +135,17 @@
 						[102, 204, 255],
 						[102, 102, 255]
 					];
-					bounds = [0, 64, 512, 4 * 1024, 16 * 1024, 24 * 1024, 32 * 1024, 40 * 1024];
+					bounds = [0, 64 * 1024, 512 * 1024, 4 * 1024 * 1024, 16 * 1024 * 1024, 24 * 1024 * 1024, 32 * 1024 * 1024, 40 * 1024 * 1024];
 				},
 				getSpeed(speed) {
 					let value = parseFloat(speed.toString().slice(0, -2))
 					if (speed.toString().slice(-2) == "MB") {
+						value *= 1048576
+					}
+					else if (speed.toString().slice(-2) == "KB") {
 						value *= 1024
 					}
+					else value = parseFloat(speed.toString().slice(0, -1))
 					return value
 				},
 				getColor(lc, rc, level) {
@@ -205,6 +211,7 @@
 							break
 						case "speed":
 							item.speed="测试中..."
+							item.maxspeed="测试中..."
 							this.$set(this.result, id, item)
 							break
 					}
@@ -222,7 +229,8 @@
 								"remark": json.remarks,
 								"loss": "",
 								"ping": "",
-								"speed": "0.00KB"
+								"speed": "0.00B",
+								"maxspeed": "0.00B"
 							}
 							this.$set(this.result, id, item)
 							break
@@ -254,6 +262,7 @@
 							//clearInterval(interval)
 							item = this.result[id]
 							item.speed = json.speed
+							item.maxspeed = json.maxspeed
 							/*
 							item = {
 								"group": json.group,

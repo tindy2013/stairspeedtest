@@ -51,7 +51,8 @@ call :runclient
 call :chkping %add% %port%
 if "%pkloss%" == "100.00%%" (
 echo Cannot connect to server. Skipping speedtest...
-set speed=0.00KB
+set speed=0.00B
+set maxspeed=0.00B
 ) else (
 echo Now performing speedtest...
 call :perform
@@ -80,7 +81,8 @@ call :runclient
 call :chkping %add% %port%
 if "%pkloss%" == "100.00%%" (
 echo {"info":"error","reason":"noconnection","id":"0"}
-set speed=0.00KB
+set speed=0.00B
+set maxspeed=0.00B
 ) else (
 echo {"info":"gotping","id":"0","ping":"%avgping%","loss":"%pkloss%"}
 echo {"info":"startspeed","id":"0"}
@@ -93,7 +95,7 @@ if "!speed!" == "0.00B" echo {"info":"nospeed","id":"0"}
 )
 call :killclient
 echo {"info":"gotspeed","id":0,"speed":"%speed%","maxspeed":"%maxspeed%"}
-echo ("info":"traffic","size":"%traffic%"}
+echo {"info":"traffic","size":"%traffic%"}
 echo {"info":"eof"}
 goto :eof
 
@@ -244,7 +246,8 @@ call :runclient
 call :chkping %add% %port%
 if "!pkloss!" == "100.00%%" (
 echo Cannot connect to server. Skipping speedtest...
-set speed=0.00KB
+set speed=0.00B
+set maxspeed=0.00B
 ) else (
 echo Now performing speedtest...
 call :perform
@@ -271,7 +274,8 @@ call :chkping %add% %port%
 echo {"info":"gotping","id":%id%,"ping":"%avgping%","loss":"%pkloss%"}
 if "%pkloss%" == "100.00%%" (
 echo {"info":"error","reason":"noconnection","id":%id%}
-set speed=0.00KB
+set speed=0.00B
+set maxspeed=0.00B
 ) else (
 echo {"info":"startspeed","id":%id%}
 call :perform
