@@ -199,6 +199,9 @@
 							this.send(link + "^" + group)
 						})
 						ws.addEventListener('message', this.MessageEvent)
+					} else {
+						this.loading=false
+						this.$alert("后端连接错误！请检查后端运行情况！","错误")
 					}
 				},
 				loopevent(id,tester) {
@@ -283,11 +286,22 @@
 						case "eof":
 							this.loading = false
 							break
+						case "retest":
+							item = this.result[id]
+							this.$notify.error("节点 "+item.group+" - "+item.remark+" 第一次测试无速度，将重新测试。")
+							break
+						case "nospeed":
+							item = this.result[id]
+							this.$notify.error("节点 "+item.group+" - "+item.remark+" 第二次测试无速度。")
+							break
 						case "error":
 							switch (json.reason) {
 								case "noconnection":
-									let item = this.result[id]
+									item = this.result[id]
+									item.ping="0.00"
+									item.loss="100.00%"
 									this.$notify.error("节点 "+item.group+" - "+item.remark+" 无法连接。")
+									this.$set(this.result, id, item)
 									break
 								case "nonodes":
 									this.$alert("找不到任何节点。请检查订阅链接。","错误")
