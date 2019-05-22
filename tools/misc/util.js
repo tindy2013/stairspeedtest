@@ -21,7 +21,9 @@ function  orderByName(sTableID, iCol, comparer) {
 
 function getSpeed(speed){
 	var value=parseFloat(speed.toString().slice(0,-2));
-	if(speed.toString().slice(-2)=="MB") value*=1024;
+	if(speed.toString().slice(-2)=="MB") value*=1048576;
+	else if(speed.toString().slice(-2)=="KB") value*=1024;
+	else value=parseFloat(speed.toString().slice(0,-1));
 	return value;
 }
 
@@ -56,11 +58,11 @@ function standardCompare(iCol) {
 //remake from https://github.com/NyanChanMeow/SSRSpeed/blob/Dev/SSRSpeed/Result/exportResult.py
 
 var colorgroup=[[255,255,255],[128,255,0],[255,255,0],[255,128,192],[255,0,0]];
-var bounds=[0,64,512,4*1024,16*1024];
+var bounds=[0,64*1024,512*1024,4*1024*1024,16*1024*1024];
 
 function useNewPalette() {
 	colorgroup=[[255,255,255],[102,255,102],[255,255,102],[255,178,102],[255,102,102],[226,140,255],[102,204,255],[102,102,255]];
-	bounds=[0,64,512,4*1024,16*1024,24*1024,32*1024,40*1024];
+	bounds=[0,64*1024,512*1024,4*1024*1024,16*1024*1024,24*1024*1024,32*1024*1024,40*1024*1024];
 }
 
 function getColor(lc,rc,level) {
@@ -119,9 +121,15 @@ function loadevent() {
 	var gentime=saveAndRemoveRow("gentime");
 	var traffic=saveAndRemoveRow("traffic");
 	saveAndRemoveRow("first");
-	orderByName("table",table.rows[0].cells.length-1,speedCompare);
+	var firststr="<td onclick='clickevent();'>Group</td><td onclick='clickevent(standardCompare);'>Remarks</td><td onclick='clickevent(standardCompare);'>Loss</td><td onclick='clickevent(standardCompare);'>Ping</td><td onclick='clickevent(speedCompare);'>AvgSpeed</td>";
+	var orderpos=table.rows[0].cells.length-1;
+	if(table.rows[0].cells.length==6) {
+		firststr+="<td onclick='clickevent(speedCompare);'>MaxSpeed</td>"
+		orderpos--;
+	}
+	orderByName("table",orderpos,speedCompare);
 	drawcolor();
-	addRow(0,"<td onclick='clickevent();'>Group</td><td onclick='clickevent();'>Remarks</td><td onclick='clickevent();'>Loss</td><td onclick='clickevent();'>Ping</td><td onclick='loadevent();'>AvgSpeed</td>","first");
+	addRow(0,firststr,"first");
 	addRow(-1,traffic,"traffic");
 	document.getElementById("traffic").cells[0].setAttribute("colspan",table.rows[0].cells.length);
 	addRow(-1,gentime,"gentime");
@@ -129,11 +137,11 @@ function loadevent() {
 }
 
 
-function clickevent() {
+function clickevent(comparer) {
 	var gentime=saveAndRemoveRow("gentime");
 	var traffic=saveAndRemoveRow("traffic");
 	var firstrow=saveAndRemoveRow("first");
-	orderByName("table",event.srcElement.cellIndex,standardCompare);
+	orderByName("table",event.srcElement.cellIndex,comparer);
 	addRow(0,firstrow,"first");
 	addRow(-1,traffic,"traffic");
 	addRow(-1,gentime,"gentime");
