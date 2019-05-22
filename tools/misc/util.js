@@ -20,6 +20,7 @@ function  orderByName(sTableID, iCol, comparer) {
 }
 
 function getSpeed(speed){
+	if(speed=="") return 0;
 	var value=parseFloat(speed.toString().slice(0,-2));
 	if(speed.toString().slice(-2)=="MB") value*=1048576;
 	else if(speed.toString().slice(-2)=="KB") value*=1024;

@@ -155,6 +155,7 @@ call :batchtestalt
 )
 )
 if !id! gtr -1 (
+call :calctraffic
 call :logeof
 echo {"info":"picsaving"}
 call :exportresult
@@ -181,7 +182,7 @@ if "!time:~0,1!" == " " (set curtime=0%%i) else (set curtime=%%i)
 set logname=%curdate:/=%-%curtime::=%
 set logpath=results\!logname!
 set logfile=!logpath!.log
-echo group,remarks,loss,ping,avgspeed>!logfile!
+echo group,remarks,loss,ping,avgspeed,maxspeed>!logfile!
 goto :eof
 
 :writelog
@@ -486,6 +487,7 @@ goto :eof
 
 :perform
 set speed=0.00B
+set maxspeed=0.00B
 if not defined preferred_test_method set preferred_test_method=file
 if "!preferred_test_method!" == "file" (call :performfile&&goto :eof)
 if "!preferred_test_method!" == "fast.com" (call :performfast&&goto :eof)
