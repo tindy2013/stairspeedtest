@@ -32,11 +32,8 @@ function speedCompare(iCol){
 	return function Compare(speed1,speed2){
 		var vValue1 = parseFloat(getSpeed(speed1.cells[iCol].firstChild.nodeValue.toString()));
 		var vValue2 = parseFloat(getSpeed(speed2.cells[iCol].firstChild.nodeValue.toString()));
-		if(vValue1.isNaN) return -1;
-		if(vValue2.isNaN) return 1;
-		if(vValue1>vValue2) return 1;
-		if(vValue1<vValue2) return -1;
-		return 0;
+		if(vValue1.isNaN||vValue2.isNaN) return 0;
+		return vValue1-vValue2;
 	};
 }
 
@@ -46,13 +43,7 @@ function standardCompare(iCol) {
 		vValue2 = oTR2.cells[iCol].firstChild.nodeValue;
 		if(!isNaN(parseFloat(vValue1))) {vValue1=parseFloat(vValue1);}
 		if(!isNaN(parseFloat(vValue2))) {vValue2=parseFloat(vValue2);}
-		if(vValue1 < vValue2) {
-			return  -1;
-		} else if (vValue1 > vValue2) {
-			return  1;
-		} else {
-			return  0;
-		}
+		return vValue1-vValue2;
 	};
 }
 

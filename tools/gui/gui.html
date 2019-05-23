@@ -114,15 +114,21 @@
 					columnIndex
 				}) {
 					let style = 'color: black; font-weight: 600;'
-					if (columnIndex === 4||columnIndex == 5) {
-						let speed = row.speed
-						if (isNaN(parseFloat(speed))) return style
-						let color = this.getSpeedColor(this.getSpeed(speed))
-						return style + 'background: ' + color
-					} else {
+					let speed = 0
+					switch(columnIndex)
+					{
+					case 4:
+						speed = row.speed
+						break
+					case 5:
+						speed = row.maxspeed
+						break
+					default:
 						return style
 					}
-
+					if (isNaN(parseFloat(speed))) return style
+					let color = this.getSpeedColor(this.getSpeed(speed))
+					return style + 'background: ' + color
 				},
 				useNewPalette() {
 					colorgroup = [
@@ -169,6 +175,7 @@
 					try {
 						ws = new WebSocket(url)
 					} catch (ex) {
+						this.loading=false
 						//this.$message.error('Cannot connect: ' + ex)
 						this.$alert("后端连接错误！请检查后端运行情况！原因："+ex,"错误")
 						return;
@@ -187,6 +194,7 @@
 							this.$message.error('Cannot send: ' + ex)
 						}
 					} else {
+						this.loading=false
 						//this.$message.error('Cannot send: Not connected')
 						this.$alert("后端连接错误！请检查后端运行情况！","错误")
 					}
