@@ -111,7 +111,7 @@ rem call :end
 rem goto :eof
 rem )
 rem for /f "delims=" %%i in ('echo !subdata!^|tools\misc\speedtestutil sub') do (
-for /f "delims=" %%i in ('tools\network\wget -t 1 -T 5 -qO- "!link!"^|tools\misc\speedtestutil sub !preferred_ss_client!_!preferred_ssr_client!') do (
+for /f "delims=" %%i in ('tools\network\wget -t 1 -T 5 -qO- "!link!"^|tools\misc\speedtestutil sub !preferred_ss_client!_!preferred_ssr_client! !override_conf_port!') do (
 for /f "delims=, tokens=1-5,*" %%a in ("%%i") do (set linktype=%%a&&set groupstr=%%b&&set ps=%%c&&set add=%%d&&set port=%%e&&set proxystr=%%f)
 if not "!linktype!" == "" (
 set /a id=!id!+1
@@ -145,7 +145,7 @@ rem goto :eof
 rem )
 rem echo {"info":"gotsub"}
 rem for /f "delims=" %%i in ('echo !subdata!^|tools\misc\speedtestutil sub') do (
-for /f "delims=" %%i in ('tools\network\wget -t 1 -T 5 -qO- "!link!"^|tools\misc\speedtestutil sub !preferred_ss_client!_!preferred_ssr_client!') do (
+for /f "delims=" %%i in ('tools\network\wget -t 1 -T 5 -qO- "!link!"^|tools\misc\speedtestutil sub !preferred_ss_client!_!preferred_ssr_client! !override_conf_port!') do (
 for /f "delims=, tokens=1-5,*" %%a in ("%%i") do (set linktype=%%a&&set groupstr=%%b&&set ps=%%c&&set add=%%d&&set port=%%e&&set proxystr=%%f)
 if not "!linktype!" == "" (
 set /a id=!id!+1
@@ -182,7 +182,7 @@ if "!time:~0,1!" == " " (set curtime=0%%i) else (set curtime=%%i)
 set logname=%curdate:/=%-%curtime::=%
 set logpath=results\!logname!
 set logfile=!logpath!.log
-echo group,remarks,loss,ping,avgspeed,maxspeed>!logfile!
+if "!export_with_maxspeed!" == "true" (echo group,remarks,loss,ping,avgspeed,maxspeed>!logfile!) else (echo group,remarks,loss,ping,avgspeed>!logfile!)
 goto :eof
 
 :writelog
@@ -195,7 +195,7 @@ echo Generated at %curdate:/=-% !time! by Stair Speedtest>>"!logfile!"
 goto :eof
 
 :calctraffic
-if "!traffic!" == "0" (set traffic=0.00KB&&goto :eof)
+if "!traffic!" == "0" (set trafficstr=0.00KB&&goto :eof)
 if !traffic! geq 1048576 (
 rem no need to worry about accuracy, this is enough for 2 decimals
 set /a traffic=!traffic!/1024*100/1024
@@ -291,7 +291,7 @@ echo !proxystr! > config.json
 goto :eof
 
 :readconf
-for /f "delims=, tokens=1-5,*" %%a in ('echo "%~1" ^| tools\misc\speedtestutil link !preferred_ss_client!_!preferred_ssr_client!') do (set linktype=%%a&&set groupstr=%%b&&set ps=%%c&&set add=%%d&&set port=%%e&&set proxystr=%%f)
+for /f "delims=, tokens=1-5,*" %%a in ('echo "%~1" ^| tools\misc\speedtestutil link !preferred_ss_client!_!preferred_ssr_client! !override_conf_port!') do (set linktype=%%a&&set groupstr=%%b&&set ps=%%c&&set add=%%d&&set port=%%e&&set proxystr=%%f)
 call :chkexcluderemark
 call :chkincluderemark
 goto :eof
