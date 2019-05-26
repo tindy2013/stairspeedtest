@@ -385,27 +385,27 @@ call :killssrwin
 goto :eof
 
 :killv2core
-tskill v2-core>nul 2>nul
+taskkill /f /im v2-core.exe>nul 2>nul
 goto :eof
 
 :killss
-tskill ss-libev>nul 2>nul
-tskill obfs-local>nul 2>nul
-tskill simple-obfs>nul 2>nul
+taskkill /f /im ss-libev.exe>nul 2>nul
+taskkill /f /im obfs-local.exe>nul 2>nul
+taskkill /f /im simple-obfs.exe>nul 2>nul
 goto :eof
 
 :killsswin
-tskill shadowsocks-win>nul 2>nul
-tskill obfs-local>nul 2>nul
-tskill simple-obfs>nul 2>nul
+taskkill /f /im shadowsocks-win.exe>nul 2>nul
+taskkill /f /im obfs-local.exe>nul 2>nul
+taskkill /f /im simple-obfs.exe>nul 2>nul
 goto :eof
 
 :killssr
-tskill ssr-libev>nul 2>nul
+taskkill /f /im ssr-libev.exe>nul 2>nul
 goto :eof
 
 :killssrwin
-tskill shadowsocksr-win>nul 2>nul
+taskkill /f /im shadowsocksr-win.exe>nul 2>nul
 goto :eof
 
 :sleep
@@ -442,8 +442,7 @@ set avgping=!avgping:~1,-1!
 goto :eof
 
 :googleping
-rem weird bug if using www.google.com, might be caused by dns
-call :curlping "https://google.com" 301 0
+call :curlping "https://www.google.com" 200 0
 goto :eof
 
 :bingping
