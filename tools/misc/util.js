@@ -119,7 +119,7 @@ function loadevent() {
 		firststr+="<td onclick='clickevent(speedCompare);'>MaxSpeed</td>"
 		orderpos--;
 	}
-	orderByName("table",orderpos,speedCompare);
+	//orderByName("table",orderpos,speedCompare);
 	drawcolor();
 	addRow(0,firststr,"first");
 	addRow(-1,traffic,"traffic");
@@ -134,6 +134,25 @@ function clickevent(comparer) {
 	var traffic=saveAndRemoveRow("traffic");
 	var firstrow=saveAndRemoveRow("first");
 	orderByName("table",event.srcElement.cellIndex,comparer);
+	addRow(0,firstrow,"first");
+	addRow(-1,traffic,"traffic");
+	addRow(-1,gentime,"gentime");
+}
+
+function runsort(type) {
+	var gentime=saveAndRemoveRow("gentime");
+	var traffic=saveAndRemoveRow("traffic");
+	var firstrow=saveAndRemoveRow("first");
+	if(type=="none") return 0;
+	var orderpos=table.rows[0].cells.length-1;
+	if(table.rows[0].cells.length==6) orderpos--;
+	if(type=="rspeed") orderByName("table",orderpos,speedCompare);
+	else if(type=="ping") orderpos--;
+	else if(type=="rping") {
+		orderpos--;
+		orderByName("table",orderpos,standardCompare);
+	}
+	orderByName("table",orderpos,speedCompare);
 	addRow(0,firstrow,"first");
 	addRow(-1,traffic,"traffic");
 	addRow(-1,gentime,"gentime");

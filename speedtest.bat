@@ -542,9 +542,11 @@ set speed=!speed!B
 goto :eof
 
 :exportresult
+if not defined export_sort_method set export_sort_method=speed
 echo !logfile! | tools\misc\speedtestutil export tools\misc\util.js !export_with_maxspeed!>"!logpath!.htm"
 cd results
-..\tools\misc\phantomjs ..\tools\misc\simplerender.js "!logname!.htm" "!logname!.png"
+rem ..\tools\misc\phantomjs ..\tools\misc\simplerender.js "!logname!.htm" "!logname!.png"
+..\tools\misc\phantomjs ..\tools\misc\render_alt.js "!logname!.htm" "!logname!.png" !export_sort_method!
 cd ..
 goto :eof
 
