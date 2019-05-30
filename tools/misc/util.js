@@ -112,8 +112,9 @@ function addRow(pos,str,id) {
 function loadevent() {
 	var gentime=saveAndRemoveRow("gentime");
 	var traffic=saveAndRemoveRow("traffic");
+	var about=saveAndRemoveRow("about");
 	saveAndRemoveRow("first");
-	var firststr="<td onclick='clickevent();'>Group</td><td onclick='clickevent(standardCompare);'>Remarks</td><td onclick='clickevent(standardCompare);'>Loss</td><td onclick='clickevent(standardCompare);'>Ping</td><td onclick='clickevent(speedCompare);'>AvgSpeed</td>";
+	var firststr="<td onclick='clickevent(standardCompare);'>Group</td><td onclick='clickevent(standardCompare);'>Remarks</td><td onclick='clickevent(standardCompare);'>Loss</td><td onclick='clickevent(standardCompare);'>Ping</td><td onclick='clickevent(speedCompare);'>AvgSpeed</td>";
 	var orderpos=table.rows[0].cells.length-1;
 	if(table.rows[0].cells.length==6) {
 		firststr+="<td onclick='clickevent(speedCompare);'>MaxSpeed</td>"
@@ -126,6 +127,8 @@ function loadevent() {
 	document.getElementById("traffic").cells[0].setAttribute("colspan",table.rows[0].cells.length);
 	addRow(-1,gentime,"gentime");
 	document.getElementById("gentime").cells[0].setAttribute("colspan",table.rows[0].cells.length);
+	addRow(-1,about,"about");
+	document.getElementById("about").cells[0].setAttribute("colspan",table.rows[0].cells.length);
 }
 
 
@@ -133,27 +136,32 @@ function clickevent(comparer) {
 	var gentime=saveAndRemoveRow("gentime");
 	var traffic=saveAndRemoveRow("traffic");
 	var firstrow=saveAndRemoveRow("first");
+	var about=saveAndRemoveRow("about");
 	orderByName("table",event.srcElement.cellIndex,comparer);
 	addRow(0,firstrow,"first");
 	addRow(-1,traffic,"traffic");
 	addRow(-1,gentime,"gentime");
+	addRow(-1,about,"about");
 }
 
 function runsort(type) {
 	var gentime=saveAndRemoveRow("gentime");
 	var traffic=saveAndRemoveRow("traffic");
 	var firstrow=saveAndRemoveRow("first");
-	if(type=="none") return 0;
-	var orderpos=table.rows[0].cells.length-1;
-	if(table.rows[0].cells.length==6) orderpos--;
-	if(type=="rspeed") orderByName("table",orderpos,speedCompare);
-	else if(type=="ping") orderpos--;
-	else if(type=="rping") {
-		orderpos--;
-		orderByName("table",orderpos,standardCompare);
+	var about=saveAndRemoveRow("about");
+	if(type!="none") {
+		var orderpos=table.rows[0].cells.length-1;
+		if(table.rows[0].cells.length==6) orderpos--;
+		if(type=="rspeed") orderByName("table",orderpos,speedCompare);
+		else if(type=="ping") orderpos--;
+		else if(type=="rping") {
+			orderpos--;
+			orderByName("table",orderpos,standardCompare);
+		}
+		orderByName("table",orderpos,speedCompare);
 	}
-	orderByName("table",orderpos,speedCompare);
 	addRow(0,firstrow,"first");
 	addRow(-1,traffic,"traffic");
 	addRow(-1,gentime,"gentime");
+	addRow(-1,about,"about");
 }
