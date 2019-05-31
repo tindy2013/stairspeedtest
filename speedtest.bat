@@ -237,9 +237,9 @@ if "!export_with_maxspeed!" == "true" (echo !groupstr!,!ps!,!pkloss!,!avgping!,!
 goto :eof
 
 :resulteof
-echo Traffic used : !trafficstr!. Online Node(s) : [!onlines!/!totals!]>>"!resultfile!"
+echo Traffic used : !trafficstr!. Working Node(s) : [!onlines!/!totals!]>>"!resultfile!"
 echo Generated at %curdate:/=-% !time!>>"!resultfile!"
-echo By Stair Speedtest>>"!resultfile!"
+echo By Stair Speedtest.>>"!resultfile!"
 goto :eof
 
 :logeof
