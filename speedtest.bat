@@ -140,7 +140,6 @@ rem don't log sensitive info?
 rem call :writelog "INFO" "Parsed link info: Group: !groupstr! Name: !ps! Address: !add! Port: !port!"
 if not "!linktype!" == "" (
 set /a id=!id!+1
-set /a totals=!totals!+1
 call :chkexcluderemark
 call :chkincluderemark
 call :batchtest
@@ -148,6 +147,7 @@ call :batchtest
 )
 call :calctraffic
 if !id! gtr -1 (
+set /a totals=!id!+1
 call :writelog "INFO" "All nodes tested. Total/Online nodes: !totals!/!onlines! Traffic used: !trafficstr!"
 echo All nodes tested. Traffic used: !trafficstr!
 echo Now exporting png.
@@ -183,19 +183,19 @@ rem don't log sensitive info?
 rem call :writelog "INFO" "Parsed link info: Group: !groupstr! Name: !ps! Address: !add! Port: !port!"
 if not "!linktype!" == "" (
 set /a id=!id!+1
-set /a totals=!totals!+1
 call :chkexcluderemark
 call :chkincluderemark
 call :batchtestalt
 )
 )
 if !id! gtr -1 (
+set /a totals=!id!+1
 call :writelog "INFO" "All nodes tested. Total/Online nodes: !totals!/!onlines! Traffic used: !trafficstr!"
 call :calctraffic
 call :resulteof
 echo {"info":"picsaving"}
 call :exportresult
-echo {"info":"picsaved","path":"%logpath:\=\\%.png"}
+echo {"info":"picsaved","path":"%resultpath:\=\\%.png"}
 ) else (
 del /q "!logfile!">nul 2>nul
 echo {"info":"error","reason":"nonodes"}
