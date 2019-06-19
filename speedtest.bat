@@ -126,6 +126,7 @@ set id=-1
 set totals=0
 set onlines=0
 call :writelog "INFO" "Downloading subscription data..."
+echo Looking for nodes...
 rem saving all subscribe data to a variable might cause problem, removed for now
 rem for /f "tokens=*" %%i in ('tools\network\curl -L --silent "!link!"') do set subdata=%%i
 rem if "!subdata!" == "" (
@@ -202,6 +203,70 @@ echo {"info":"error","reason":"nonodes"}
 )
 call :logeof
 echo {"info":"eof"}
+goto :eof
+
+:batchtest
+if not "!group!" == "" set groupstr=!group!
+call :chkignore
+if %ignored% equ 1 goto :eof
+echo.
+echo Current Server Group: !groupstr! Name: !ps!
+call :writelog "INFO" "Received server. Type: !linktype! Group: !groupstr! Name: !ps!"
+echo Now performing tcping...
+call :buildjson
+call :runclient
+call :chkping !add! !port!
+if "!pkloss!" == "100.00%%" (
+call :writelog "ERROR" "Cannot connect to this node."
+echo Cannot connect to server. Skipping speedtest...
+set speed=0.00B
+set maxspeed=0.00B
+) else (
+echo Now performing speedtest...
+call :perform
+if "!speed!" == "0.00B" if not "!speedtest_mode!" == "pingonly" (
+call :writelog "ERROR" "Speedtest returned no speed."
+echo Speedtest returned no speed. Retesting...
+call :perform
+if "!speed!" == "0.00B" echo Speedtest returned no speed 2 times. Skipping...
+)
+)
+call :killclient
+echo Result: DL.Speed: !speed! Max.Speed: !maxspeed! Pk.Loss: !pkloss! Avg.Ping: !avgping!
+if not "!speed!" == "0.00B" set /a onlines=!onlines!+1
+call :writeresult
+goto :eof
+
+:batchtestalt
+if not "!group!" == "" set groupstr=!group!
+call :chkignore
+if %ignored% equ 1 goto :eof
+echo {"info":"gotserver","id":!id!,"group":"!groupstr!","remarks":"!ps!"}|tools\misc\webstring
+call :writelog "INFO" "Received server. Type: !linktype! Group: !groupstr! Name: !ps!"
+echo {"info":"startping","id":!id!}
+call :buildjson
+call :runclient
+call :chkping !add! !port!
+echo {"info":"gotping","id":!id!,"ping":"!avgping!","loss":"!pkloss!"}
+if "!pkloss!" == "100.00%%" (
+call :writelog "ERROR" "Cannot connect to this node."
+echo {"info":"error","reason":"noconnection","id":!id!}
+set speed=0.00B
+set maxspeed=0.00B
+) else (
+echo {"info":"startspeed","id":!id!}
+call :perform
+if "!speed!" == "0.00B" if not "!speedtest_mode!" == "pingonly" (
+call :writelog "ERROR" "Speedtest returned no speed."
+echo {"info":"retest","id":"!id!"}
+call :perform
+if "!speed!" == "0.00B" echo {"info":"nospeed","id":"!id!"}
+)
+)
+call :killclient
+echo {"info":"gotspeed","id":!id!,"speed":"!speed!","maxspeed":"!maxspeed!"}
+if not "!speed!" == "0.00B" set /a onlines=!onlines!+1
+call :writeresult
 goto :eof
 
 :end
@@ -283,70 +348,6 @@ call :instr "ssr://" "%~1"
 if !retval! equ 0 (set linktype=ssr&&goto :eof)
 goto :eof
 
-:batchtest
-if !excluded! equ 1 goto :eof
-if !included! equ 0 goto :eof
-echo.
-if not "!group!" == "" set groupstr=!group!
-echo Current Server Group: !groupstr! Name: !ps!
-call :writelog "INFO" "Received server. Type: !linktype! Group: !groupstr! Name: !ps!"
-echo Now performing tcping...
-call :buildjson
-call :runclient
-call :chkping !add! !port!
-if "!pkloss!" == "100.00%%" (
-call :writelog "ERROR" "Cannot connect to this node."
-echo Cannot connect to server. Skipping speedtest...
-set speed=0.00B
-set maxspeed=0.00B
-) else (
-echo Now performing speedtest...
-call :perform
-if "!speed!" == "0.00B" if not "!speedtest_mode!" == "pingonly" (
-call :writelog "ERROR" "Speedtest returned no speed."
-echo Speedtest returned no speed. Retesting...
-call :perform
-if "!speed!" == "0.00B" echo Speedtest returned no speed 2 times. Skipping...
-)
-)
-call :killclient
-echo Result: DL.Speed: !speed! Max.Speed: !maxspeed! Pk.Loss: !pkloss! Avg.Ping: !avgping!
-if not "!speed!" == "0.00B" set /a onlines=!onlines!+1
-call :writeresult
-goto :eof
-
-:batchtestalt
-if !excluded! equ 1 (set /a id=!id!-1&&goto :eof)
-if !included! equ 0 (set /a id=!id!-1&&goto :eof)
-if not "!group!" == "" set groupstr=!group!
-echo {"info":"gotserver","id":!id!,"group":"!groupstr!","remarks":"!ps!"}|tools\misc\webstring
-call :writelog "INFO" "Received server. Type: !linktype! Group: !groupstr! Name: !ps!"
-echo {"info":"startping","id":!id!}
-call :buildjson
-call :runclient
-call :chkping !add! !port!
-echo {"info":"gotping","id":!id!,"ping":"!avgping!","loss":"!pkloss!"}
-if "!pkloss!" == "100.00%%" (
-call :writelog "ERROR" "Cannot connect to this node."
-echo {"info":"error","reason":"noconnection","id":!id!}
-set speed=0.00B
-set maxspeed=0.00B
-) else (
-echo {"info":"startspeed","id":!id!}
-call :perform
-if "!speed!" == "0.00B" if not "!speedtest_mode!" == "pingonly" (
-call :writelog "ERROR" "Speedtest returned no speed."
-echo {"info":"retest","id":"!id!"}
-call :perform
-if "!speed!" == "0.00B" echo {"info":"nospeed","id":"!id!"}
-)
-)
-call :killclient
-echo {"info":"gotspeed","id":!id!,"speed":"!speed!","maxspeed":"!maxspeed!"}
-if not "!speed!" == "0.00B" set /a onlines=!onlines!+1
-call :writeresult
-goto :eof
-
 :buildjson
 call :writelog "INFO" "Writing config file..."
 echo !proxystr! > config.json
@@ -386,6 +387,16 @@ for /L %%i in (0,1,!include_remarks_count!) do (
 )
 goto :eof
 
+:chkignore
+set ignored=0
+if !excluded! equ 1 (goto nodeignored) else if !included! equ 0 (goto nodeignored) else goto :eof
+:nodeignored
+set /a id=!id!-1
+set ignored=1
+call :writelog "INFO" "Node   !groupstr! - !ps!  has been ignored and will not be tested."
+call :sleep 0.3
+goto :eof
+
 :runclient
 if "!linktype!" == "vmess" call :runv2core
 if "!linktype!" == "ss" (
@@ -403,7 +414,7 @@ goto :eof
 :runv2core
 call :writelog "INFO" "Starting up v2ray core..."
 wscript tools\misc\runv2core.vbs //B
-call :sleep 3
+call :sleep 2
 goto :eof
 
 :runss
@@ -412,7 +423,7 @@ call :writelog "INFO" "Starting up shadowsocks-libev..."
 cd tools\clients\shadowsocks-libev
 wscript ..\..\misc\runss.vbs //B
 cd ..\..\..
-call :sleep 3
+call :sleep 2
 goto :eof
 
 :runsswin
@@ -424,7 +435,7 @@ goto :eof
 :runssr
 call :writelog "INFO" "Starting up shadowsocksr-libev..."
 wscript tools\misc\runssr.vbs //B
-call :sleep 3
+call :sleep 2
 goto :eof
 
 :runssrwin
@@ -485,7 +496,7 @@ taskkill /f /im shadowsocksr-win.exe>nul 2>nul
 goto :eof
 
 :sleep
-ping -n %1 127.1>nul 2>nul
+tcping.exe -n 1 -w %1 -i 0 127.0.0.1 0 >nul 2>nul
 goto :eof
 
 :chkping
