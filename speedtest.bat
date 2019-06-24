@@ -2,7 +2,7 @@
 setlocal enabledelayedexpansion
 
 :init
-if "%1" == "/rpc" set rpc=1
+if "%1" == "/rpc" (set rpc=1) else (set rpc=0)
 mkdir results>nul 2>nul
 mkdir temp>nul 2>nul
 mkdir logs>nul 2>nul
@@ -13,265 +13,222 @@ set thread_count=4
 call :makelogname
 call :killall
 call :readpref
+call :parseinit
 call :writelog "INFO" "Init completed."
-if "!rpc!" == "1" goto mainalt
 
 :main
+call :printout "welcome"
+if "!rpc!" == "1" goto mainalt
 title Stair Speedtest
-echo Welcome to Stair Speedtest
-echo Which stair do you want to test today? (Supports single ss/ssr/v2ray link and their subscribe links) 
 set /p link=Link: 
-call :writelog "INFO" "Received Link."
-call :chklink "!link!"
-if "!linktype!" == "vmess" (echo Found single v2ray link.&&goto singletest)
-if "!linktype!" == "ss" (echo Found single ss link.&&goto singletest)
-if "!linktype!" == "ssr" (echo Found single ssr link.&&goto singletest)
-if "!linktype!" == "sub" goto subscribe
-call :writelog "ERROR" "No valid link found."
-call :logeof
-echo No valid link found. Press anykey to exit.
-pause>nul
-goto :eof
+goto recvlink
 
 :mainalt
 set /p input=
 for /f "delims=^ tokens=1,2" %%i in ('echo "!input!"^|tools\misc\webstring local') do (set link=%%i&&set group=%%j)
-call :writelog "INFO" "Received Link. Group Name: !group!"
+goto recvlink
+
+:recvlink
+call :writelog "INFO" "Received Link."
 call :chklink "!link!"
-if "!linktype!" == "vmess" (echo {"info":"foundvmess"}&&goto singletestalt)
-if "!linktype!" == "ss" (echo {"info":"foundss"}&&goto singletestalt)
-if "!linktype!" == "ssr" (echo {"info":"foundssr"}&&goto singletestalt)
-if "!linktype!" == "sub" (echo {"info":"foundsub"}&&goto subscribealt)
+if "!linktype!" == "vmess" (call :printout "foundvmess" && goto singletest)
+if "!linktype!" == "ss" (call :printout "foundss" && goto singletest)
+if "!linktype!" == "ssr" (call :printout "foundssr" && goto singletest)
+if "!linktype!" == "sub" goto subscribe
 call :writelog "ERROR" "No valid link found."
+call :printout "unrecog"
 call :logeof
-echo {"info":"error","reason":"norecoglink"}
-echo {"info":"eof"}
-goto :eof
+call :printout "eof"
+goto end
 
 :singletest
-call :readconf "!link!"
-echo Server Group: !groupstr! Name: !ps!
-call :writelog "INFO" "Received server. Type: !linktype! Group: !groupstr! Name: !ps!"
-echo Now performing tcping...
+call :parselink "!link!"
+set id=0
+call :testnode
+call :printout "gotstats"
+call :writelog "INFO" "Single node test completed."
+call :logeof
+call :printout "eof"
+goto end
+
+:subscribe
+call :makeresult
+call :printout "foundsub"
+if not "!rpc!" == "1" (
+set /p group=Group Name: 
+)
+call :parsesub "!link!"
+set sub=1
+set id=0
+set totals=!linktype_count!
+if "!totals!"=="-1" (
+del /q "!resultfile!"
+call :printout "nonodes"
+call :writelog "ERROR" "No nodes are found in this subscription."
+call :printout "eof"
+goto :eof
+)
+for /l %%A in (0,1,!totals!) do (
+call :testnode
+set /a id=!id!+1
+)
+set /a totals=!totals!+1
+call :calctraffic
+call :writelog "INFO" "All nodes tested. Total/Online nodes: !totals!/!onlines! Traffic used: !trafficstr!"
+call :resulteof
+call :printout "picsaving"
+call :exportresult
+call :printout "picsaved"
+call :logeof
+call :printout "eof"
+goto end
+
+:parseinit
+call :arrinit "linktype"
+call :arrinit "groupstr"
+call :arrinit "ps"
+call :arrinit "add"
+call :arrinit "port"
+call :arrinit "proxystr"
+goto :eof
+
+:parselink
+for /f "delims=, tokens=1-5,*" %%a in ('echo "%~1" ^| tools\misc\speedtestutil link !preferred_ss_client!_!preferred_ssr_client! !override_conf_port!') do (
+call :arrappend "linktype" "%%a"
+set strdata=%%b
+call :arrappendalt "groupstr"
+set strdata=%%c
+call :arrappendalt "ps"
+call :arrappend "add" "%%d"
+call :arrappend "port" "%%e"
+call :arrappend "proxystr" "%%f"
+)
+goto :eof
+
+:parsesub
+call :writelog "INFO" "Downloading subscription data..."
+for /f "delims=" %%i in ('tools\network\wget -qO- "!link!"^|tools\misc\speedtestutil sub !preferred_ss_client!_!preferred_ssr_client! !override_conf_port!') do for /f "delims=, tokens=1-5,*" %%a in ("%%i") do (
+set groupstr=%%b
+set ps=%%c
+call :chkignore
+if !ignored! equ 0 (
+call :arrappend "linktype" "%%a"
+set strdata=%%b
+call :arrappendalt "groupstr"
+set strdata=%%c
+call :arrappendalt "ps"
+call :arrappend "add" "%%d"
+call :arrappend "port" "%%e"
+call :arrappend "proxystr" "%%f"
+)
+)
+goto :eof
+
+:testnode
+set linktype=!linktype%id%!
+set groupstr=!groupstr%id%!
+set ps=!ps%id%!
+set add=!add%id%!
+set port=!port%id%!
+set proxystr=!proxystr%id%!
+if not "!group!" == "" set groupstr=!group!
+call :printout "gotserver"
+set strdata=Received server. Type: !linktype! Group: !groupstr! Name: !ps!
+call :writelogalt "INFO"
+call :printout "startping"
 call :buildjson
 call :runclient
 call :chkping !add! !port!
 if "!pkloss!" == "100.00%%" (
 call :writelog "ERROR" "Cannot connect to this node."
-echo Cannot connect to server. Skipping speedtest...
+call :printout "noconn"
 set speed=0.00B
 set maxspeed=0.00B
 ) else (
-echo Now performing speedtest...
+call :printout "gotping"
+call :printout "startspeed"
 call :perform
 if "!speed!" == "0.00B" if not "!speedtest_mode!" == "pingonly" (
 call :writelog "ERROR" "Speedtest returned no speed."
-echo Speedtest returned no speed. Retesting...
+call :printout "retest"
 call :perform
-if "!speed!" == "0.00B" echo Speedtest returned no speed 2 times. Skipping...
+if "!speed!" == "0.00B" call :printout "nospeed"
 )
+call :printout "gotspeed"
+call :printout "gotresult"
 )
 call :killclient
-call :calctraffic
-call :writelog "INFO" "Result: Download Speed: !speed!  Max Speed: !maxspeed!  Packet Loss: !pkloss!  Average Ping: !avgping! Traffic used: !trafficstr!"
+if "!sub!"=="1" (
+if not "!speed!" == "0.00B" set /a onlines=!onlines!+1
+call :writeresult
+)
+goto :eof
+
+:end
+if "!rpc!"=="1" goto :eof
+echo Press anykey to exit.
+pause >nul
+goto :eof
+
+rem /////CORE FUNCTIONS/////
+
+:printout
+if "!rpc!" == "1" (
+call :printoutalt "%~1"
+goto :eof
+)
+if "%~1"=="welcome" (
+echo Welcome to Stair Speedtest
+echo Which stair do you want to test today? (Supports single ss/ssr/v2ray link and their subscribe links) 
+)
+if "%~1"=="foundvmess" echo Found single v2ray link.
+if "%~1"=="foundss" echo Found single ss link.
+if "%~1"=="foundssr" echo Found single ssr link.
+if "%~1"=="foundsub" (
+echo Found subscribe link.
+echo If you have imported an v2ray subscribe link which doesn't contain a Group Name, you can write a custom name below.
+echo If you have imported an ss/ssr link which contains a Group Name, press Enter to skip.
+)
+if "%~1"=="unrecog" echo No valid link found. Please check your subscribe link.
+if "%~1"=="gotserver" echo Current Server Group: !groupstr! Name: !ps!
+if "%~1"=="startping" echo Now performing tcping...
+if "%~1"=="noconn" echo Cannot connect to server. Skipping speedtest...
+if "%~1"=="startspeed" echo Now performing speedtest...
+if "%~1"=="retest" echo Speedtest returned no speed. Retesting...
+if "%~1"=="nospeed" echo Speedtest returned no speed 2 times. Skipping...
+if "%~1"=="gotresult" echo Result: DL.Speed: !speed! Max.Speed: !maxspeed! Pk.Loss: !pkloss! Avg.Ping: !avgping!
+if "%~1"=="gotstats" (
 echo Statistics:
 echo 	DL.Speed: !speed! Max.Speed: !maxspeed! Pk.Loss: !pkloss! Avg.Ping: !avgping!
 echo 	Traffic used: !trafficstr!
 echo.
-echo Speedtest done. Press anykey to exit.
-call :logeof
-pause>nul
+echo Speedtest done.
+)
+if "%~1"=="picsaving" echo Now exporting png.
+if "%~1"=="picsaved" echo Result png saved to "!resultpath!.png".
+if "%~1"=="nonodes" echo No nodes found. Please check your subscribe link.
 goto :eof
 
-:singletestalt
-call :readconf "!link!"
-echo {"info":"gotserver","id":0,"group":"!groupstr!","remarks":"!ps!"}|tools\misc\webstring
-call :writelog "INFO" "Received server. Type: !linktype! Group: !groupstr! Name: !ps!"
-echo {"info":"startping","id":0}
-call :buildjson
-call :runclient
-call :chkping !add! !port!
-if "!pkloss!" == "100.00%%" (
-call :writelog "ERROR" "Cannot connect to this node."
-echo {"info":"error","reason":"noconnection","id":"0"}
-set speed=0.00B
-set maxspeed=0.00B
-) else (
-echo {"info":"gotping","id":"0","ping":"!avgping!","loss":"!pkloss!"}
-echo {"info":"startspeed","id":"0"}
-call :perform
-if "!speed!" == "0.00B" if not "!speedtest_mode!" == "pingonly" (
-call :writelog "INFO" "Speedtest returned no speed."
-echo {"info":"retest","id":"0"}
-call :perform
-if "!speed!" == "0.00B" echo {"info":"nospeed","id":"0"}
-)
-)
-call :killclient
-call :writelog "INFO" "Result: Download Speed: !speed!  Max Speed: !maxspeed!  Packet Loss: !pkloss!  Average Ping: !avgping! Traffic used: !trafficstr!"
-echo {"info":"gotspeed","id":0,"speed":"!speed!","maxspeed":"!maxspeed!"}
-echo {"info":"traffic","size":"!traffic!"}
-echo {"info":"eof"}
-call :logeof
-goto :eof
-
-:subscribe
-call :makeresult
-echo Found subscribe link.
-echo If you have imported an v2ray subscribe link which doesn't contain a Group Name, you can write a custom name below.
-echo If you have imported an ss/ssr link which contains a Group Name, press Enter to skip.
-set /p group=Group Name: 
-echo.
-set id=-1
-set totals=0
-set onlines=0
-call :writelog "INFO" "Downloading subscription data..."
-echo Looking for nodes...
-rem saving all subscribe data to a variable might cause problem, removed for now
-rem for /f "tokens=*" %%i in ('tools\network\curl -L --silent "!link!"') do set subdata=%%i
-rem if "!subdata!" == "" (
-rem echo Nothing returned from subscribe link. Please check your subscribe link.
-rem call :end
-rem goto :eof
-rem )
-rem for /f "delims=" %%i in ('echo !subdata!^|tools\misc\speedtestutil sub') do (
-for /f "delims=" %%i in ('tools\network\wget -t 1 -T 5 -qO- "!link!"^|tools\misc\speedtestutil sub !preferred_ss_client!_!preferred_ssr_client! !override_conf_port!') do (
-for /f "delims=, tokens=1-5,*" %%a in ("%%i") do (set linktype=%%a&&set groupstr=%%b&&set ps=%%c&&set add=%%d&&set port=%%e&&set proxystr=%%f)
-rem don't log sensitive info?
-rem call :writelog "INFO" "Parsed link info: Group: !groupstr! Name: !ps! Address: !add! Port: !port!"
-if not "!linktype!" == "" (
-set /a id=!id!+1
-call :chkexcluderemark
-call :chkincluderemark
-call :batchtest
-)
-)
-call :calctraffic
-if !id! gtr -1 (
-set /a totals=!id!+1
-call :writelog "INFO" "All nodes tested. Total/Online nodes: !totals!/!onlines! Traffic used: !trafficstr!"
-echo All nodes tested. Traffic used: !trafficstr!
-echo Now exporting png.
-call :resulteof
-call :exportresult
-echo Result png saved to "!resultpath!.png".
-) else (
-del /q "!resultfile!">nul 2>nul
-echo No nodes found. Please check your subscribe link.
-)
-call :logeof
-call :end
-goto :eof
-
-:subscribealt
-call :makeresult
-set id=-1
-set totals=0
-set onlines=0
-echo {"info":"fetchingsub"}
-call :writelog "INFO" "Downloading subscription data..."
-rem for /f %%i in ('tools\network\wget -qO- "!link!"') do set subdata=%%i
-rem if "!subdata!" == "" (
-rem echo {"info":"error","reason":"invalidsub"}
-rem echo {"info":"eof"}
-rem goto :eof
-rem )
-rem echo {"info":"gotsub"}
-rem for /f "delims=" %%i in ('echo !subdata!^|tools\misc\speedtestutil sub') do (
-for /f "delims=" %%i in ('tools\network\wget -t 1 -T 5 -qO- "!link!"^|tools\misc\speedtestutil sub !preferred_ss_client!_!preferred_ssr_client! !override_conf_port!') do (
-for /f "delims=, tokens=1-5,*" %%a in ("%%i") do (set linktype=%%a&&set groupstr=%%b&&set ps=%%c&&set add=%%d&&set port=%%e&&set proxystr=%%f)
-rem don't log sensitive info?
-rem call :writelog "INFO" "Parsed link info: Group: !groupstr! Name: !ps! Address: !add! Port: !port!"
-if not "!linktype!" == "" (
-set /a id=!id!+1
-call :chkexcluderemark
-call :chkincluderemark
-call :batchtestalt
-)
-)
-if !id! gtr -1 (
-set /a totals=!id!+1
-call :writelog "INFO" "All nodes tested. Total/Online nodes: !totals!/!onlines! Traffic used: !trafficstr!"
-call :calctraffic
-call :resulteof
-echo {"info":"picsaving"}
-call :exportresult
-echo {"info":"picsaved","path":"%resultpath:\=\\%.png"}
-) else (
-del /q "!logfile!">nul 2>nul
-echo {"info":"error","reason":"nonodes"}
-)
-call :logeof
-echo {"info":"eof"}
-goto :eof
-
-:batchtest
-if not "!group!" == "" set groupstr=!group!
-call :chkignore
-if %ignored% equ 1 goto :eof
-echo.
-echo Current Server Group: !groupstr! Name: !ps!
-call :writelog "INFO" "Received server. Type: !linktype! Group: !groupstr! Name: !ps!"
-echo Now performing tcping...
-call :buildjson
-call :runclient
-call :chkping !add! !port!
-if "!pkloss!" == "100.00%%" (
-call :writelog "ERROR" "Cannot connect to this node."
-echo Cannot connect to server. Skipping speedtest...
-set speed=0.00B
-set maxspeed=0.00B
-) else (
-echo Now performing speedtest...
-call :perform
-if "!speed!" == "0.00B" if not "!speedtest_mode!" == "pingonly" (
-call :writelog "ERROR" "Speedtest returned no speed."
-echo Speedtest returned no speed. Retesting...
-call :perform
-if "!speed!" == "0.00B" echo Speedtest returned no speed 2 times. Skipping...
-)
-)
-call :killclient
-echo Result: DL.Speed: !speed! Max.Speed: !maxspeed! Pk.Loss: !pkloss! Avg.Ping: !avgping!
-if not "!speed!" == "0.00B" set /a onlines=!onlines!+1
-call :writeresult
-goto :eof
-
-:batchtestalt
-if not "!group!" == "" set groupstr=!group!
-call :chkignore
-if %ignored% equ 1 goto :eof
-echo {"info":"gotserver","id":!id!,"group":"!groupstr!","remarks":"!ps!"}|tools\misc\webstring
-call :writelog "INFO" "Received server. Type: !linktype! Group: !groupstr! Name: !ps!"
-echo {"info":"startping","id":!id!}
-call :buildjson
-call :runclient
-call :chkping !add! !port!
-echo {"info":"gotping","id":!id!,"ping":"!avgping!","loss":"!pkloss!"}
-if "!pkloss!" == "100.00%%" (
-call :writelog "ERROR" "Cannot connect to this node."
-echo {"info":"error","reason":"noconnection","id":!id!}
-set speed=0.00B
-set maxspeed=0.00B
-) else (
-echo {"info":"startspeed","id":!id!}
-call :perform
-if "!speed!" == "0.00B" if not "!speedtest_mode!" == "pingonly" (
-call :writelog "ERROR" "Speedtest returned no speed."
-echo {"info":"retest","id":"!id!"}
-call :perform
-if "!speed!" == "0.00B" echo {"info":"nospeed","id":"!id!"}
-)
-)
-call :killclient
-echo {"info":"gotspeed","id":!id!,"speed":"!speed!","maxspeed":"!maxspeed!"}
-if not "!speed!" == "0.00B" set /a onlines=!onlines!+1
-call :writeresult
-goto :eof
-
-:end
-echo Press anykey to exit.
-pause>nul
+:printoutalt
+if "%~1"=="welcome" echo {"info":"started"}
+if "%~1"=="foundvmess" echo {"info":"foundvmess"}
+if "%~1"=="foundss" echo {"info":"foundss"}
+if "%~1"=="foundssr" echo {"info":"foundssr"}
+if "%~1"=="foundsub" echo {"info":"foundsub"}
+if "%~1"=="unrecog" echo {"info":"error","reason":"norecoglink"}
+if "%~1"=="eof" echo {"info":"eof"}
+if "%~1"=="gotserver" echo {"info":"gotserver","id":!id!,"group":"!groupstr!","remarks":"!ps!"}|tools\misc\webstring
+if "%~1"=="startping" echo {"info":"startping","id":!id!}
+if "%~1"=="noconn" echo {"info":"error","reason":"noconnection","id":!id!}
+if "%~1"=="gotping" echo {"info":"gotping","id":!id!,"ping":"!avgping!","loss":"!pkloss!"}
+if "%~1"=="startspeed" echo {"info":"startspeed","id":!id!}
+if "%~1"=="retest" echo {"info":"retest","id":!id!}
+if "%~1"=="nospeed" echo {"info":"nospeed","id":!id!}
+if "%~1"=="gotspeed" echo {"info":"gotspeed","id":!id!,"speed":"!speed!","maxspeed":"!maxspeed!"}
+if "%~1"=="traffic" echo {"info":"traffic","size":"!traffic!"}
+if "%~1"=="picsaving" echo {"info":"picsaving"}
+if "%~1"=="picsaved" echo {"info":"picsaved","path":"%resultpath:\=\\%.png"}
+if "%~1"=="nonodes" echo {"info":"error","reason":"nonodes"}
 goto :eof
 
 :makelogname
@@ -295,6 +252,10 @@ goto :eof
 
 :writelog
 echo [!date! !time!][%~1]%~2 >>"!logfile!"
+goto :eof
+
+:writelogalt
+echo [!date! !time!][%~1]!strdata!>>"!logfile!"
 goto :eof
 
 :writeresult
@@ -353,14 +314,6 @@ call :writelog "INFO" "Writing config file..."
 echo !proxystr! > config.json
 goto :eof
 
-:readconf
-for /f "delims=, tokens=1-5,*" %%a in ('echo "%~1" ^| tools\misc\speedtestutil link !preferred_ss_client!_!preferred_ssr_client! !override_conf_port!') do (set linktype=%%a&&set groupstr=%%b&&set ps=%%c&&set add=%%d&&set port=%%e&&set proxystr=%%f)
-rem don't log sensitive info?
-rem call :writelog "INFO" "Parsed link info: Group: !groupstr! Name: !ps! Address: !add! Port: !port!"
-call :chkexcluderemark
-call :chkincluderemark
-goto :eof
-
 :chkexcluderemark
 call :writelog "INFO" "Comparing exclude remarks..."
 set excluded=0
@@ -388,12 +341,21 @@ for /L %%i in (0,1,!include_remarks_count!) do (
 goto :eof
 
 :chkignore
+call :chkexcluderemark
+call :chkincluderemark
 set ignored=0
-if !excluded! equ 1 (goto nodeignored) else if !included! equ 0 (goto nodeignored) else goto :eof
+if !excluded! equ 1 (goto nodeignored) else if !included! equ 0 (goto nodeignored) else (
+set strdata=Node  !groupstr! - !ps!  has been added.
+call :writelogalt "INFO"
+call :sleep 0.3
+goto :eof
+)
+
 :nodeignored
 set /a id=!id!-1
 set ignored=1
-call :writelog "INFO" "Node   !groupstr! - !ps!  has been ignored and will not be tested."
+set strdata=Node  !groupstr! - !ps!  has been ignored and will not be tested.
+call :writelogalt
 call :sleep 0.3
 goto :eof
 
@@ -495,10 +457,6 @@ call :writelog "INFO" "Killing shadowsocksr-win..."
 taskkill /f /im shadowsocksr-win.exe>nul 2>nul
 goto :eof
 
-:sleep
-tcping.exe -n 1 -w %1 -i 0 127.0.0.1 0 >nul 2>nul
-goto :eof
-
 :chkping
 if "!speedtest_mode!" == "speedonly" (
 set avgping=0.00
@@ -586,9 +544,7 @@ goto :eof
 set speed=0.00B
 set maxspeed=0.00B
 if "!speedtest_mode!" == "pingonly" goto :eof
-if not defined preferred_test_method set preferred_test_method=file
-if "!preferred_test_method!" == "file" (call :performfile&&goto :eof)
-if "!preferred_test_method!" == "fast.com" (call :performfast&&goto :eof)
+call :performfile
 goto :eof
 
 :performfile
@@ -597,52 +553,10 @@ rem http://cachefly.cachefly.net/200mb.test
 rem https://dl.google.com/dl/android/aosp/bonito-pd2a.190115.029-factory-aac5b874.zip
 rem https://download.microsoft.com/download/2/0/E/20E90413-712F-438C-988E-FDAA79A8AC3D/dotnetfx35.exe
 set testfile=https://download.microsoft.com/download/2/0/E/20E90413-712F-438C-988E-FDAA79A8AC3D/dotnetfx35.exe
-rem handshake first (but may cause problem)
-rem tools\network\curl -m 1 -o test.test -x socks5://127.0.0.1:65432 !testfile! -L -s>nul 2>nul
-rem then do the real testing
-rem for /f "delims=, tokens=1-2" %%i in ('tools\network\curl -m 10 -o test.test -x socks5://127.0.0.1:65432 !testfile! -L -s -skw "%%{speed_download},%%{size_download}"') do (set speed=%%i&&set /a traffic=!traffic!+%%j/1024)
 for /f "delims=, tokens=1-3" %%i in ('tools\network\multithread-test -tc !thread_count! -nd -xa 127.0.0.1 -xp 65432 -tf !testfile!') do (
 call :writelog "RAW" "%%~i,%%~j,%%~k"
 set speed=%%i&&set maxspeed=%%j&&set /a traffic=!traffic!+%%k/1024
 call :writelog "INFO" "Average speed: %%i  Max speed: %%j  Traffic used in bytes: %%k"
-)
-rem no need to calculate
-rem call :calcspeed
-goto :eof
-
-:performfast
-call :writelog "INFO" "Now performing fast.com speed test..."
-tools\network\curl -o fast.htm --silent -x socks5://127.0.0.1:65432 https://fast.com
-for /f "tokens=*" %%i in ('echo placeholder ^| tools\misc\speedtestutil fastpage') do set script=%%i
-tools\network\curl -o fast.js --silent -x socks5://127.0.0.1:65432 https://fast.com!script!
-for /f %%i in ('echo placeholder ^| tools\misc\speedtestutil fasttoken') do set token=%%i
-for /f %%i in ('tools\network\curl --silent -x socks5://127.0.0.1:65432 "https://api.fast.com/netflix/speedtest?https=true&token=!token!&urlCount=1" ^| tools\misc\speedtestutil fastjson') do set fasturl=%%i
-for /d %%a in (0,1,2) do (
-for /f "delims=, tokens=1-2" %%i in ('tools\network\curl -m 30 -o test.test -x socks5://127.0.0.1:65432 "!fasturl!" -L -s -skw "%%{speed_download},%%{size_download}"') do (set oncespeed=%%i&&set /a traffic=!traffic!+%%j/1024)
-set oncespeed=!oncespeed:.000=!
-set /a speed=!speed!+!oncespeed!
-)
-set /a speed=!speed!/3
-call :calcspeed
-goto :eof
-
-:calcspeed
-set speed=%speed:.000=%
-if "!speed!" == "0" (set speed=0.00B&&goto :eof)
-if !speed! geq 1048576 (
-set /a speed=!speed!/1024*100/1024
-set speeddec=!speed:~-2!
-set /a speed=!speed!/100
-set speed=!speed!.!speeddec:~0,2!MB
-) else (
-if !speed! geq 1024 (
-set /a speed=!speed!*100/1024
-set speeddec=!speed:~-2!
-set /a speed=!speed!/100
-set speed=!speed!.!speeddec:~0,2!KB
-) else (
-set speed=!speed!B
-)
 )
 goto :eof
 
@@ -651,7 +565,6 @@ call :writelog "INFO" "Now exporting result..."
 if not defined export_sort_method set export_sort_method=speed
 echo !resultfile! | tools\misc\speedtestutil export tools\misc\util.js tools\misc\style.css !export_with_maxspeed!>"!resultpath!.htm"
 cd results
-rem ..\tools\misc\phantomjs ..\tools\misc\simplerender.js "!resultname!.htm" "!resultname!.png"
 ..\tools\misc\phantomjs ..\tools\misc\render_alt.js "!logname!.htm" "!logname!.png" !export_sort_method!
 cd ..
 call :writelog "INFO" "Result saved to !resultpath!.png ."
@@ -668,14 +581,36 @@ call :writelog "INFO" "Added preference item: !itemname!==%%j"
 )
 goto :eof
 
+rem /////BASIC FUNCTIONS/////
+
+:sleep
+tcping.exe -n 1 -w %1 -i 0 127.0.0.1 0 >nul 2>nul
+goto :eof
+
 :instr
 echo "%~2"|find "%~1">nul
 set retval=!errorlevel!
 goto :eof
 
-:chrinstr
-set retval=0
-for /f "delims=%~1 tokens=1" %%z in ("%~2") do if "%~2" == "%%z" set retval=1
+:arrinit
+set arrname=%~1
+set !arrname!_count=-1
+goto :eof
+
+:arrappend
+set arrname=%~1
+set arrcount=!%arrname%_count!
+set /a arrcount=!arrcount!+1
+set !arrname!!arrcount!=%~2
+set !arrname!_count=!arrcount!
+goto :eof
+
+:arrappendalt
+set arrname=%~1
+set arrcount=!%arrname%_count!
+set /a arrcount=!arrcount!+1
+set !arrname!!arrcount!=!strdata!
+set !arrname!_count=!arrcount!
 goto :eof
 
 :arrlength

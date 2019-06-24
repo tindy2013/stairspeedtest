@@ -10,8 +10,6 @@ A small script that can test the stairs' download speed, packet loss and latency
 **Also thanks to [CareyWang](https://github.com/CareyWang) for his help and debug.**
 ## Known Bugs
 You tell me?
-## Future Functions
-* Fast.com speedtest has been added to the script, but it is still under testing.
 ## Licences
 * [Tencent/rapidjson](https://github.com/Tencent/rapidjson) (MIT/BSD/JSON)
 * [curl/curl](https://github.com/curl/curl) (Modified BSD)
