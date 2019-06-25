@@ -25,7 +25,14 @@ goto recvlink
 
 :mainalt
 set /p input=
-for /f "delims=^ tokens=1,2" %%i in ('echo "!input!"^|tools\misc\webstring local') do (set link=%%i&&set group=%%j)
+for /f "delims=^ tokens=1-6" %%i in ('echo "!input!"^|tools\misc\webstring local') do (
+set link=%%i
+set group=%%j
+call :overrideconf "%%k" "speedtest_mode"
+call :overrideconf "%%l" "preferred_ping_method"
+call :overrideconf "%%m" "export_sort_method"
+call :overrideconf "%%n" "export_with_maxspeed"
+)
 goto recvlink
 
 :recvlink
@@ -578,6 +585,13 @@ if not "!itemname:~0,1!" == ";" (
 set !itemname!=%%j
 call :writelog "INFO" "Added preference item: !itemname!==%%j"
 )
+)
+goto :eof
+
+:overrideconf
+if not "%~1"=="!%~2!" (
+set !%~2!=%~1
+call :writelog "INFO" "Override option: %~2==%~1"
 )
 goto :eof
 
