@@ -237,13 +237,13 @@
 					let item = {}
 					switch (json.info) {
 						case "started":
-							loadingContent="后端已启动……"
+							this.loadingContent="后端已启动……"
 							break
 						case "fetchingsub":
-							loadingContent="正在获取节点，若节点较多将需要一些时间……"
+							this.loadingContent="正在获取节点，若节点较多将需要一些时间……"
 							break
 						case "begintest":
-							loadingContent="疯狂测速中……"
+							this.loadingContent="疯狂测速中……"
 							break
 						case "gotserver":
 							item = {
