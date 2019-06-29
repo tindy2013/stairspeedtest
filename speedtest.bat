@@ -10,6 +10,7 @@ set group=
 set fasturl=
 set traffic=0
 set thread_count=4
+set override_conf_port=-1
 call :makelogname
 call :killall
 call :readpref
@@ -25,7 +26,9 @@ goto recvlink
 
 :mainalt
 set /p input=
-for /f "delims=^ tokens=1-6" %%i in ('echo "!input!"^|tools\misc\webstring local') do (
+for /f "delims=^ tokens=1-6" %%i in ('echo "!input!"^|tools\misc\speedtestutil local') do (
+set strdata=Input data: !input!
+call :writelogalt "INFO"
 set link=%%i
 set group=%%j
 call :overrideconf "%%k" "speedtest_mode"
@@ -51,6 +54,7 @@ goto end
 :singletest
 call :parselink "!link!"
 set id=0
+call :printout "begin"
 call :testnode
 call :printout "gotstats"
 call :writelog "INFO" "Single node test completed."
@@ -75,6 +79,7 @@ call :writelog "ERROR" "No nodes are found in this subscription."
 call :printout "eof"
 goto :eof
 )
+call :printout "begin"
 for /l %%A in (0,1,!totals!) do (
 call :testnode
 set /a id=!id!+1
@@ -100,7 +105,7 @@ call :arrinit "proxystr"
 goto :eof
 
 :parselink
-for /f "delims=, tokens=1-5,*" %%a in ('echo "%~1" ^| tools\misc\speedtestutil link !preferred_ss_client!_!preferred_ssr_client! !override_conf_port!') do (
+for /f "delims=, tokens=1-5,*" %%a in ('echo "%~1" ^| tools\misc\speedtestutil link !preferred_ss_client!_!preferred_ssr_client! !override_conf_port! !rpc! !group!') do (
 call :arrappend "linktype" "%%a"
 set strdata=%%b
 call :arrappendalt "groupstr"
@@ -114,7 +119,9 @@ goto :eof
 
 :parsesub
 call :writelog "INFO" "Downloading subscription data..."
-for /f "delims=" %%i in ('tools\network\wget -qO- "!link!"^|tools\misc\speedtestutil sub !preferred_ss_client!_!preferred_ssr_client! !override_conf_port!') do for /f "delims=, tokens=1-5,*" %%a in ("%%i") do (
+call :printout "fetchingsub"
+set id=0
+for /f "delims=" %%i in ('tools\network\wget -qO- "!link!"^|tools\misc\speedtestutil sub !preferred_ss_client!_!preferred_ssr_client! !override_conf_port! !rpc! !group!') do for /f "delims=, tokens=1-5,*" %%a in ("%%i") do (
 set groupstr=%%b
 set ps=%%c
 call :chkignore
@@ -127,6 +134,7 @@ call :arrappendalt "ps"
 call :arrappend "add" "%%d"
 call :arrappend "port" "%%e"
 call :arrappend "proxystr" "%%f"
+set /a id=!id!+1
 )
 )
 goto :eof
@@ -222,9 +230,11 @@ if "%~1"=="foundvmess" echo {"info":"foundvmess"}
 if "%~1"=="foundss" echo {"info":"foundss"}
 if "%~1"=="foundssr" echo {"info":"foundssr"}
 if "%~1"=="foundsub" echo {"info":"foundsub"}
+if "%~1"=="fetchingsub" echo {"info":"fetchingsub"}
 if "%~1"=="unrecog" echo {"info":"error","reason":"norecoglink"}
 if "%~1"=="eof" echo {"info":"eof"}
-if "%~1"=="gotserver" echo {"info":"gotserver","id":!id!,"group":"!groupstr!","remarks":"!ps!"}|tools\misc\webstring
+if "%~1"=="begin" echo {"info":"begintest"}
+if "%~1"=="gotserver" echo {"info":"gotserver","id":!id!,"group":"!groupstr!","remarks":"!ps!"}|tools\misc\speedtestutil web
 if "%~1"=="startping" echo {"info":"startping","id":!id!}
 if "%~1"=="noconn" echo {"info":"error","reason":"noconnection","id":!id!}
 if "%~1"=="gotping" echo {"info":"gotping","id":!id!,"ping":"!avgping!","loss":"!pkloss!"}
@@ -359,10 +369,10 @@ goto :eof
 )
 
 :nodeignored
-set /a id=!id!-1
+rem set /a id=!id!-1
 set ignored=1
 set strdata=Node  !groupstr! - !ps!  has been ignored and will not be tested.
-call :writelogalt
+call :writelogalt "INFO"
 call :sleep 0.3
 goto :eof
 
@@ -589,6 +599,7 @@ call :writelog "INFO" "Added preference item: !itemname!==%%j"
 goto :eof
 
 :overrideconf
+if "%~1"=="" goto :eof
 if not "%~1"=="!%~2!" (
 set !%~2!=%~1
 call :writelog "INFO" "Override option: %~2==%~1"
