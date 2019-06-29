@@ -30,7 +30,7 @@ for /f "delims=^ tokens=1-6" %%i in ('echo "!input!"^|tools\misc\speedtestutil l
 set strdata=Input data: !input!
 call :writelogalt "INFO"
 set link=%%i
-set group=%%j
+if not "%%j" == "?empty?" set group=%%j
 call :overrideconf "%%k" "speedtest_mode"
 call :overrideconf "%%l" "preferred_ping_method"
 call :overrideconf "%%m" "export_sort_method"
@@ -168,13 +168,17 @@ call :writelog "ERROR" "Speedtest returned no speed."
 call :printout "retest"
 call :perform
 if "!speed!" == "0.00B" call :printout "nospeed"
-)
+) else (
 call :printout "gotspeed"
 call :printout "gotresult"
 )
 call :killclient
 if "!sub!"=="1" (
+if not "!speedtest_mode!" == "pingonly" (
 if not "!speed!" == "0.00B" set /a onlines=!onlines!+1
+) else (
+if not "!pkloss!" == "100.00%%" set /a onlines=!onlines!+1
+)
 call :writeresult
 )
 goto :eof
@@ -601,7 +605,7 @@ goto :eof
 :overrideconf
 if "%~1"=="" goto :eof
 if not "%~1"=="!%~2!" (
-set !%~2!=%~1
+set %~2=%~1
 call :writelog "INFO" "Override option: %~2==%~1"
 )
 goto :eof
