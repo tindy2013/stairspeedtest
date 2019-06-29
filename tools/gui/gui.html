@@ -17,33 +17,41 @@
           <el-container v-loading="loading" element-loading-text="疯狂测速中……">
             <el-form label-width="120px">
               <el-row>
+                <el-form-item label="功能设置：">
+                  <el-radio-group v-model="option">
+                    <el-radio :label="0">基础模式</el-radio>
+                    <el-radio :label="1">进阶模式</el-radio>
+                  </el-radio-group>
+                </el-form-item>
+
                 <el-form-item label="订阅链接：">
                   <el-input v-model="subscription" style="width: 800px" size="small" @keyup.enter.native="submit" placeholder="支持 SSR/SSD/v2ray 订阅链接及节点链接单独测速"></el-input>
                 </el-form-item>
                 <el-form-item label="自定义组名：">
                   <el-input v-model="groupname" style="width: 215px" size="small" @keyup.enter.native="submit"></el-input>
+                  <el-button type="primary" size="small" @click="submit" style="margin-left: 20px" v-if="!option">提交</el-button>
                 </el-form-item>
 
-                <el-form-item label="测试项：">
+                <el-form-item label="测试项：" v-if="option">
                   <el-select v-model="speedtestMode" size="small">
                     <el-option v-for="(item, key, index) in init.speedtestModes" :key="index" :label="item"
                       :value="key">
                     </el-option>
                   </el-select>
                 </el-form-item>
-                <el-form-item label="Ping方式：">
+                <el-form-item label="Ping方式：" v-if="option">
                   <el-select v-model="pingMethod" size="small">
                     <el-option v-for="(item, key, index) in init.pingMethods" :key="index" :label="item" :value="key">
                     </el-option>
                   </el-select>
                 </el-form-item>
-                <el-form-item label="排序方式：">
+                <el-form-item label="排序方式：" v-if="option">
                   <el-select v-model="sortMethod" size="small">
                     <el-option v-for="(item, key, index) in init.sortMethods" :key="index" :label="item" :value="key">
                     </el-option>
                   </el-select>
                 </el-form-item>
-                <el-form-item label="导出速度峰值：">
+                <el-form-item label="导出速度峰值：" v-if="option">
                   <el-select v-model="exportMaxSpeed" size="small">
                     <el-option key="0" label="否" :value="false"></el-option>
                     <el-option key="1" label="是" :value="true"></el-option>
@@ -51,10 +59,6 @@
                   <el-button type="primary" size="small" @click="submit" style="margin-left: 20px">提交</el-button>
                 </el-form-item>
               </el-row>
-
-              <el-form-item>
-                
-              </el-form-item>
             </el-form>
           </el-container>
         </el-card>
@@ -129,6 +133,7 @@
           sortMethod: "none",
           exportMaxSpeed: false,
           method: "SOCKET",
+          option: 0,
 
           init: {
             speedtestModes: {
