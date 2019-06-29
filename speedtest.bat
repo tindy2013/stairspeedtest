@@ -168,7 +168,7 @@ call :writelog "ERROR" "Speedtest returned no speed."
 call :printout "retest"
 call :perform
 if "!speed!" == "0.00B" call :printout "nospeed"
-) else (
+)
 call :printout "gotspeed"
 call :printout "gotresult"
 )
