@@ -121,7 +121,7 @@ goto :eof
 call :writelog "INFO" "Downloading subscription data..."
 call :printout "fetchingsub"
 set id=0
-for /f "delims=" %%i in ('tools\network\wget -qO- "!link!"^|tools\misc\speedtestutil sub !preferred_ss_client!_!preferred_ssr_client! !override_conf_port! !rpc! !group!') do for /f "delims=, tokens=1-5,*" %%a in ("%%i") do (
+for /f "delims=" %%i in ('tools\network\wget -t 5 -T 10 -qO- "!link!"^|tools\misc\speedtestutil sub !preferred_ss_client!_!preferred_ssr_client! !override_conf_port! !rpc! !group!') do for /f "delims=, tokens=1-5,*" %%a in ("%%i") do (
 set groupstr=%%b
 set ps=%%c
 call :chkignore
