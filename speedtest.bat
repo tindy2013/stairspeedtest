@@ -71,11 +71,13 @@ set /p group=Group Name:
 call :parsesub "!link!"
 set sub=1
 set id=0
+set onlines=0
 set totals=!linktype_count!
 if "!totals!"=="-1" (
 del /q "!resultfile!"
 call :printout "nonodes"
 call :writelog "ERROR" "No nodes are found in this subscription."
+call :logeof
 call :printout "eof"
 goto :eof
 )
@@ -105,7 +107,7 @@ call :arrinit "proxystr"
 goto :eof
 
 :parselink
-for /f "delims=, tokens=1-5,*" %%a in ('echo "%~1" ^| tools\misc\speedtestutil link !preferred_ss_client!_!preferred_ssr_client! !override_conf_port! !rpc! !group!') do (
+for /f "delims=, tokens=1-5,*" %%a in ('echo "%~1" ^| tools\misc\speedtestutil link !preferred_ss_client!_!preferred_ssr_client! !override_conf_port!') do (
 call :arrappend "linktype" "%%a"
 set strdata=%%b
 call :arrappendalt "groupstr"
@@ -121,7 +123,7 @@ goto :eof
 call :writelog "INFO" "Downloading subscription data..."
 call :printout "fetchingsub"
 set id=0
-for /f "delims=" %%i in ('tools\network\wget -t 5 -T 10 -qO- "!link!"^|tools\misc\speedtestutil sub !preferred_ss_client!_!preferred_ssr_client! !override_conf_port! !rpc! !group!') do for /f "delims=, tokens=1-5,*" %%a in ("%%i") do (
+for /f "delims=" %%i in ('tools\network\wget -t 5 -T 10 -qO- "!link!"^|tools\misc\speedtestutil sub !preferred_ss_client!_!preferred_ssr_client! !override_conf_port!') do for /f "delims=, tokens=1-5,*" %%a in ("%%i") do (
 set groupstr=%%b
 set ps=%%c
 call :chkignore
