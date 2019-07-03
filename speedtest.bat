@@ -1,5 +1,6 @@
 @echo off
 setlocal enabledelayedexpansion
+set version=v0.3.2-alpha
 
 :init
 if "%1" == "/rpc" (set rpc=1) else (set rpc=0)
@@ -20,7 +21,7 @@ call :writelog "INFO" "Init completed."
 :main
 call :printout "welcome"
 if "!rpc!" == "1" goto mainalt
-title Stair Speedtest
+title Stair Speedtest !version!
 set /p link=Link: 
 goto recvlink
 
@@ -256,15 +257,15 @@ goto :eof
 
 :makelogname
 for /f "tokens=1,2" %%i in ("!date!") do (
-call :instr "/" "%%i"
-if !retval! equ 0 (set curdate=%%i) else (set curdate=%%j)
+call :chkdatestr "%%i"
+if "!isdate!"=="1" (set curdate=%%i) else (set curdate=%%j)
 )
-for /f %%i in ("%time:~0,5%") do (
+for /f %%i in ("!time:~0,5!") do (
 if "!time:~0,1!" == " " (set curtime=0%%i) else (set curtime=%%i)
 )
-set logname=%curdate:/=%-%curtime::=%
+set logname=!curdate:/=!-!curtime::=!
 set logfile=logs\!logname!.log
-if "!rpc!" == "1" (echo [!date! !time!][INFO]Stair Speedtest started in Web GUI mode.>"!logfile!") else (echo [!date! !time!][INFO]Stair Speedtest started in CLI mode.>"!logfile!")
+if "!rpc!" == "1" (echo [!date! !time!][INFO]Stair Speedtest !version! started in Web GUI mode.>"!logfile!") else (echo [!date! !time!][INFO]Stair Speedtest !version! started in CLI mode.>"!logfile!")
 goto :eof
 
 :makeresult
@@ -288,12 +289,22 @@ goto :eof
 :resulteof
 echo Traffic used : !trafficstr!. Working Node(s) : [!onlines!/!totals!]>>"!resultfile!"
 echo Generated at %curdate:/=-% !time!>>"!resultfile!"
-echo By Stair Speedtest.>>"!resultfile!"
+echo By Stair Speedtest !version!.>>"!resultfile!"
 goto :eof
 
 :logeof
 call :writelog "INFO" "Program terminated."
 echo --EOF-- >>"!logfile!"
+goto :eof
+
+:chkdatestr
+set isdate=0
+call :instr "/" "%~1"
+if !retval! equ 0 (set isdate=1&&goto :eof)
+call :instr "-" "%~1"
+if !retval! equ 0 (set isdate=1&&goto :eof)
+call :instr "." "%~1"
+if !retval! equ 0 (set isdate=1&&goto :eof)
 goto :eof
 
 :calctraffic
