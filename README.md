@@ -1,4 +1,6 @@
 # Stair Speedtest
+**IMPORTANT: It is recommended to use the newest reborn version, which has much better performance and cross-platform support: [Stair Speedtest Reborn](https://github.com/tindy2013/stairspeedtest-reborn). This version will still continue to update for a while until the reborn version reaches stable state.**
+
 A small script that can test the stairs' download speed, packet loss and latency. Supports single ss/ssr/v2ray links and their subscribe links.  
 ## Usage
 * Download the latest release and unzip it, then run "speedtest.bat" for CLI speedtest, run "webgui.bat" for Web GUI speedtest.
