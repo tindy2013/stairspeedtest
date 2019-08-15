@@ -8,7 +8,7 @@ A small script that can test the stairs' download speed, packet loss and latency
 * The result will be exported into a PNG file with the result log. An interactive HTML file with test results will also be generated with the PNG file. In this HTML, you can sort by name, ping, packet loss or average speed.
 * You can customize some settings by editing "pref.ini".
 ## Thanks
-**This script is inspired by [NyanChanMeow](https://github.com/NyanChanMeow)'s original script [SSRSpeed](https://github.com/NyanChanMeow/SSRSpeed). From which I have learned quite a lot on how to rewrite the code, and it has provoded me with some critical information. THANK YOU FOR YOUR HARD-WORKING!!**  
+**This script is inspired by [NyanChanMeow](https://github.com/NyanChanMeow)'s original script [SSRSpeed](https://github.com/NyanChanMeow/SSRSpeed). From which I have learned quite a lot on how to rewrite the code, and it has provided me with some critical information. THANK YOU FOR YOUR HARD-WORKING!!**  
 **Also thanks to [CareyWang](https://github.com/CareyWang) for his help and debug.**
 ## Known Bugs
 You tell me?
